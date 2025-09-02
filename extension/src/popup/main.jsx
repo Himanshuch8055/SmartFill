@@ -31,7 +31,7 @@ function App() {
       <div className="px-4 pt-4 pb-3 border-b bg-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-md bg-blue-600 text-white grid place-items-center text-sm font-semibold">SF</div>
+            <img src="/icons/icon1.svg" alt="SmartFill" className="w-12 h-12 rounded-md" />
             <div>
               <h1 className="text-base font-semibold leading-tight">SmartFill</h1>
               <p className="text-[11px] text-gray-500 -mt-0.5">Quickly autofill forms</p>

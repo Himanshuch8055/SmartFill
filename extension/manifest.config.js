@@ -6,9 +6,25 @@ export default {
   name: "SmartFill",
   description: "SmartFill Chrome extension (scaffold)",
   version: "0.0.1",
+  icons: {
+    16: "icons/icon16.png",
+    32: "icons/icon32.png",
+    48: "icons/icon48.png",
+    128: "icons/icon128.png",
+    256: "icons/icon256.png",
+    512: "icons/icon512.png"
+  },
   action: {
     default_title: "SmartFill",
-    default_popup: "popup.html"
+    default_popup: "popup.html",
+    default_icon: {
+      16: "icons/icon16.png",
+      32: "icons/icon32.png",
+      48: "icons/icon48.png",
+      128: "icons/icon128.png",
+      256: "icons/icon256.png",
+      512: "icons/icon512.png"
+    }
   },
   options_page: "options.html",
   background: {

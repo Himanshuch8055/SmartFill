@@ -92,7 +92,7 @@ function Options() {
       <header className="border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-10">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-lg bg-blue-600 text-white grid place-items-center font-semibold shadow">SF</div>
+            <img src="/icons/icon1.svg" alt="SmartFill" className="w-12 h-12 rounded-lg" />
             <div>
               <h1 className="text-lg font-semibold leading-tight">SmartFill</h1>
               <p className="text-xs text-gray-500 -mt-0.5">Autofill profile & custom inputs</p>
