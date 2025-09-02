@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global extension styles */
+:root {
+  --brand: 44 72% 52%;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
