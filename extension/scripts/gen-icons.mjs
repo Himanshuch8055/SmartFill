@@ -23,7 +23,7 @@ async function main() {
     process.exit(1)
   }
 
-  const sizes = [16, 32, 48, 128, 256, 512]
+  const sizes = [16, 32, 48, 64, 128, 256, 512]
   if (!fs.existsSync(iconsDir)) fs.mkdirSync(iconsDir, { recursive: true })
 
   await Promise.all(

@@ -14,6 +14,18 @@ export default {
     256: "icons/icon256.png",
     512: "icons/icon512.png"
   },
+  browser_specific_settings: {
+    gecko: {
+      id: "himanshuch8055@gmail.com",
+      strict_min_version: "128.0"
+    }
+  },
+  applications: {
+    gecko: {
+      id: "himanshuch8055@gmail.com",
+      strict_min_version: "128.0"
+    }
+  },
   action: {
     default_title: "SmartFill",
     default_popup: "popup.html",
@@ -28,8 +40,7 @@ export default {
   },
   options_page: "options.html",
   background: {
-    service_worker: "src/background.js",
-    type: "module"
+    service_worker: "src/background.js"
   },
   permissions: ["storage", "activeTab", "scripting", "tabs"],
   host_permissions: [
