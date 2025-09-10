@@ -378,7 +378,12 @@ function Options() {
               <span className="sr-only">Open sidebar</span>
               ☰
             </button>
-            <img src="/icons/icon32.png" alt="SmartFill" className="h-6 w-6" />
+            <img src="/icons/icon512.png" alt="SmartFill" className="h-8 w-8" />
+            {/* <div className="w-10 h-10 rounded-md bg-blue-600 grid place-items-center" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
+                <path fill="#ffffff" d="M13.5 2.5l-8 10.2c-.2.3 0 .8.4.8h6.2l-1.2 7.4c-.1.6.7.9 1.1.4l8-10.2c.2-.3 0-.8-.4-.8h-6.2l1.2-7.4c.1-.6-.7-.9-1.1-.4z"/>
+              </svg>
+            </div> */}
             <span className="text-sm font-semibold text-gray-800 shrink-0">SmartFill</span>
             <span className="text-gray-300">/</span>
             <input
