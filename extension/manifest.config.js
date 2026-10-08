@@ -4,8 +4,8 @@
 export default {
   manifest_version: 3,
   name: "SmartFill",
-  description: "SmartFill Chrome extension (scaffold)",
-  version: "0.0.1",
+  description: "Fill forms in one click from your saved profiles. Preview, undo, per-site rules. Your data never leaves your browser.",
+  version: "1.0.0",
   icons: {
     16: "icons/icon16.png",
     32: "icons/icon32.png",
@@ -15,12 +15,6 @@ export default {
     512: "icons/icon512.png"
   },
   browser_specific_settings: {
-    gecko: {
-      id: "himanshuch8055@gmail.com",
-      strict_min_version: "128.0"
-    }
-  },
-  applications: {
     gecko: {
       id: "himanshuch8055@gmail.com",
       strict_min_version: "128.0"
@@ -42,7 +36,8 @@ export default {
   background: {
     service_worker: "src/background.js"
   },
-  permissions: ["storage", "activeTab", "scripting", "tabs", "contextMenus"],
+  // Content scripts on all pages power the widget, badge and field learning; no extra host permissions needed.
+  permissions: ["storage", "activeTab", "contextMenus"],
   commands: {
     "fill-form": {
       suggested_key: { default: "Alt+Shift+F" },
@@ -57,13 +52,6 @@ export default {
       description: "Switch to the next profile"
     }
   },
-  host_permissions: [
-    "http://localhost/*",
-    "https://localhost/*",
-    "http://127.0.0.1/*",
-    "https://*/*",
-    "http://*/*"
-  ],
   content_scripts: [
     {
       matches: ["<all_urls>"],

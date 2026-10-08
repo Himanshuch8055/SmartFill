@@ -2,6 +2,34 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './popup.css'
 import '../styles.css'
+import { reviewUrl } from '../lib/links'
+
+const RATING_PROMPT_AFTER = 20
+
+// One-time "rate us" banner after the user has had real value from the extension.
+function RatingPrompt() {
+  const [show, setShow] = React.useState(false)
+  React.useEffect(() => {
+    chrome.storage.local.get(['fillCount', 'ratingPromptDone']).then(({ fillCount = 0, ratingPromptDone }) => {
+      setShow(!ratingPromptDone && fillCount >= RATING_PROMPT_AFTER)
+    })
+  }, [])
+  if (!show) return null
+  const done = (rate) => {
+    chrome.storage.local.set({ ratingPromptDone: true })
+    setShow(false)
+    if (rate) chrome.tabs.create({ url: reviewUrl() })
+  }
+  return (
+    <div className="text-xs rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
+      <div className="text-blue-900">Enjoying SmartFill? A quick rating helps others find it.</div>
+      <div className="mt-2 flex gap-2">
+        <button onClick={() => done(true)} className="px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700">Rate SmartFill</button>
+        <button onClick={() => done(false)} className="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">No thanks</button>
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const [status, setStatus] = React.useState('')
@@ -198,6 +226,7 @@ function App() {
 
       {/* Body */}
       <div className="p-4 space-y-3">
+        <RatingPrompt />
 
         <div className="grid grid-cols-[1fr,auto] gap-2">
           <button onClick={autofillNow} disabled={busy} className={`btn px-4 py-2 rounded-md text-white text-sm inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${busy ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`} aria-label="Autofill now">

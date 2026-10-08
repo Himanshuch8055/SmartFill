@@ -5,5 +5,11 @@ import manifest from './manifest.config.js'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), crx({ manifest })]
+  plugins: [react(), crx({ manifest })],
+  build: {
+    rollupOptions: {
+      // Pages not referenced by the manifest must be listed explicitly
+      input: { welcome: 'welcome.html' }
+    }
+  }
 })

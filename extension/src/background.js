@@ -22,9 +22,9 @@ import {
 } from './lib/storage'
 import { PROFILE_FIELDS } from './lib/profileFields'
 
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('SmartFill installed')
+chrome.runtime.onInstalled.addListener(({ reason }) => {
   createContextMenus()
+  if (reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') })
 })
 
 // ---------- Fill helpers ----------
