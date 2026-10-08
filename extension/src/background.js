@@ -3,6 +3,7 @@ import {
   getProfile,
   getRules,
   saveRules,
+  addRule,
   getProfiles,
   getActiveProfile,
   setActiveProfile,
@@ -199,6 +200,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'UNDO_ACTIVE': {
         const tab = await getActiveTab()
         sendResponse(tab?.id ? await undoTab(tab.id) : { ok: false, error: 'No active tab' })
+        break
+      }
+      case 'ADD_RULE': {
+        await addRule(message.rule)
+        sendResponse({ ok: true })
         break
       }
       case 'FIELD_COUNT': {

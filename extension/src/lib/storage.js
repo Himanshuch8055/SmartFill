@@ -165,3 +165,12 @@ export async function getRules() {
 export async function saveRules(rules) {
   await chrome.storage.local.set({ rules })
 }
+
+// Add or replace a rule for the same site + selector.
+export async function addRule(rule) {
+  const rules = await getRules()
+  const next = rules.filter((r) => !(r.sitePattern === rule.sitePattern && r.selector === rule.selector))
+  next.push({ ...rule, createdAt: Date.now() })
+  await saveRules(next)
+  return next
+}

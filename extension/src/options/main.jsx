@@ -2,6 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import '../styles.css'
 import { PROFILE_SECTIONS } from '../lib/profileFields'
+import SiteRules from './SiteRules'
 
 function Field({ label, name, placeholder, value, onChange, type = 'text', options, full }) {
   const [val, setVal] = React.useState(value ?? '')
@@ -49,7 +50,7 @@ function Options() {
   const [activeId, setActiveId] = React.useState('')
   // ui state
   const [status, setStatus] = React.useState('')
-  const [activeTab, setActiveTab] = React.useState('profile') // profile | custom | settings
+  const [activeTab, setActiveTab] = React.useState('profile') // profile | custom | rules | settings
   const [saving, setSaving] = React.useState(false)
   const [saveState, setSaveState] = React.useState('idle') // idle | saving | saved | error
   const [toast, setToast] = React.useState({ show: false, text: '', kind: 'info' })
@@ -413,6 +414,7 @@ function Options() {
           <nav className="hidden sm:flex items-center justify-center gap-1" role="tablist" aria-label="Sections">
             <button role="tab" aria-selected={activeTab==='profile'} onClick={() => setActiveTab('profile')} className={`px-2 py-1 rounded-md text-sm border ${activeTab==='profile' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}`}>Profile</button>
             <button role="tab" aria-selected={activeTab==='custom'} onClick={() => setActiveTab('custom')} className={`px-2 py-1 rounded-md text-sm border ${activeTab==='custom' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}`}>Custom</button>
+            <button role="tab" aria-selected={activeTab==='rules'} onClick={() => setActiveTab('rules')} className={`px-2 py-1 rounded-md text-sm border ${activeTab==='rules' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}`}>Site rules</button>
             <button role="tab" aria-selected={activeTab==='settings'} onClick={() => setActiveTab('settings')} className={`px-2 py-1 rounded-md text-sm border ${activeTab==='settings' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}`}>Settings</button>
           </nav>
           <div className="flex items-center gap-2">
@@ -634,6 +636,8 @@ function Options() {
               </div>
             </section>
           )}
+
+          {activeTab === 'rules' && <SiteRules />}
 
           {activeTab === 'settings' && (
             <section className="space-y-6">

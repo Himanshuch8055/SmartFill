@@ -41,3 +41,14 @@ describe('storage migration', () => {
     expect(chrome.storage.local.set).not.toHaveBeenCalled()
   })
 })
+
+describe('rules', () => {
+  it('addRule replaces a rule with the same site and selector', async () => {
+    const { addRule, getRules } = await import('../src/lib/storage.js')
+    await addRule({ sitePattern: 'a.com', selector: '#x', key: 'email' })
+    await addRule({ sitePattern: 'a.com', selector: '#x', key: 'phone' })
+    await addRule({ sitePattern: 'b.com', selector: '#x', key: 'email' })
+    const rules = await getRules()
+    expect(rules.map((r) => `${r.sitePattern}:${r.key}`)).toEqual(['a.com:phone', 'b.com:email'])
+  })
+})

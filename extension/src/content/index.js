@@ -2,6 +2,7 @@
 import { findFillableInputs, fillFields, deriveProfile, snapshot, restore } from '../lib/detectFields'
 import { PROFILE_FIELDS } from '../lib/profileFields'
 import { showPreview, showToast } from './preview'
+import { buildSelector } from '../lib/selector'
 
 console.debug('SmartFill content script loaded')
 
@@ -509,6 +510,7 @@ function runFill(map, profile) {
   if (filled) {
     lastSnapshot = snap
     showToast(`Filled ${filled} field${filled === 1 ? '' : 's'}`, { actionLabel: 'Undo', onAction: undoFill, timeout: 10000 })
+    watchCorrections(map, profile)
     chrome.runtime.sendMessage({ type: 'FILL_DONE', filled }).catch(() => {})
   } else if (isTop) {
     showToast('No fillable fields found on this page')
@@ -522,6 +524,67 @@ function undoFill() {
   lastSnapshot = null
   showToast(`Restored ${n} field${n === 1 ? '' : 's'}`)
   return n
+}
+
+// ---------- Learn from corrections ----------
+// After a fill, if the user types a profile value into a field SmartFill missed or
+// mapped to a different key, offer to save a site rule for it.
+
+const LEARN_WINDOW_MS = 5 * 60 * 1000
+let stopWatching = null
+
+function normValue(v) {
+  return String(v ?? '').trim().toLowerCase()
+}
+
+function offerRule(el, key) {
+  const label = FIELD_LABELS[key] || key
+  const host = location.host
+  showToast(`Always fill this field with ${label} on ${host}?`, {
+    actionLabel: 'Remember',
+    timeout: 10000,
+    onAction: async () => {
+      try {
+        const rule = { sitePattern: host, selector: buildSelector(el), key }
+        const res = await chrome.runtime.sendMessage({ type: 'ADD_RULE', rule })
+        showToast(res?.ok ? `Saved. SmartFill will remember this field on ${host}.` : 'Could not save rule')
+      } catch {
+        showToast('Could not save rule')
+      }
+    },
+  })
+}
+
+function watchCorrections(map, profile) {
+  stopWatching?.()
+  const filledAs = new Map()
+  for (const [key, targets] of Object.entries(map)) {
+    for (const t of targets) if (!Array.isArray(t)) filledAs.set(t, key)
+  }
+  // Profile value -> key (first key wins, so specific keys beat derived ones)
+  const valueToKey = new Map()
+  for (const [key, v] of Object.entries(profile)) {
+    if (key.startsWith('__fixed_') || typeof v !== 'string') continue
+    const n = normValue(v)
+    if (n && !valueToKey.has(n)) valueToKey.set(n, key)
+  }
+  const asked = new WeakSet()
+  const onChange = (e) => {
+    if (!e.isTrusted) return
+    const el = e.composedPath?.()[0] || e.target
+    if (!el || !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || asked.has(el)) return
+    const key = valueToKey.get(normValue(el.value))
+    if (!key || filledAs.get(el) === key) return
+    asked.add(el)
+    offerRule(el, key)
+  }
+  document.addEventListener('change', onChange, true)
+  const timer = setTimeout(() => stopWatching?.(), LEARN_WINDOW_MS)
+  stopWatching = () => {
+    document.removeEventListener('change', onChange, true)
+    clearTimeout(timer)
+    stopWatching = null
+  }
 }
 
 // Remember the field the user right-clicked for "Fill this field with…"
@@ -562,8 +625,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const map = { [msg.key]: [el] }
       const snap = snapshot(map)
       const { filled } = fillFields(map, profile)
-      if (filled) lastSnapshot = snap
-      else showToast(`Your profile has no value for "${FIELD_LABELS[msg.key] || msg.key}"`)
+      if (filled) {
+        lastSnapshot = snap
+        // An explicit "fill this field with X" is a strong hint: offer to remember it.
+        offerRule(el, msg.key)
+      } else showToast(`Your profile has no value for "${FIELD_LABELS[msg.key] || msg.key}"`)
       sendResponse({ ok: true, filled })
       return false
     }
