@@ -2,7 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import '../styles.css'
 
-function Field({ label, name, placeholder, value, onChange }) {
+function Field({ label, name, placeholder, value, onChange, type = 'text', options, full }) {
   const [val, setVal] = React.useState(value ?? '')
 
   // keep local state in sync if parent value changes (e.g., after load)
@@ -16,19 +16,83 @@ function Field({ label, name, placeholder, value, onChange }) {
     onChange(name, next)
   }
 
+  const cls = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition'
+  let control
+  if (type === 'select') {
+    control = (
+      <select value={val} onChange={handleChange} className={cls}>
+        <option value="">—</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    )
+  } else if (type === 'textarea') {
+    control = <textarea rows={4} value={val} onChange={handleChange} placeholder={placeholder} className={cls} />
+  } else {
+    control = <input type={type} value={val} onChange={handleChange} placeholder={placeholder} className={cls} />
+  }
+
   return (
-    <label className="block">
+    <label className={`block ${full ? 'md:col-span-2' : ''}`}>
       <span className="block text-sm font-medium text-gray-800 mb-1">{label}</span>
-      <input
-        type="text"
-        value={val}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
-      />
+      {control}
     </label>
   )
 }
+
+const PROFILE_SECTIONS = [
+  {
+    title: 'Personal',
+    fields: [
+      { name: 'fullName', label: 'Full Name', placeholder: 'John Doe' },
+      { name: 'firstName', label: 'First Name', placeholder: 'Auto from full name if empty' },
+      { name: 'middleName', label: 'Middle Name', placeholder: 'Michael' },
+      { name: 'lastName', label: 'Last Name', placeholder: 'Auto from full name if empty' },
+      { name: 'username', label: 'Username', placeholder: 'johndoe' },
+      { name: 'dob', label: 'Date of Birth', type: 'date' },
+      { name: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Non-binary', 'Prefer not to say'] },
+    ],
+  },
+  {
+    title: 'Contact',
+    fields: [
+      { name: 'email', label: 'Email', placeholder: 'john@example.com' },
+      { name: 'phone', label: 'Phone', placeholder: '+1 555-1234' },
+      { name: 'phone2', label: 'Alternate Phone', placeholder: '+1 555-5678' },
+    ],
+  },
+  {
+    title: 'Work',
+    fields: [
+      { name: 'company', label: 'Company', placeholder: 'Acme Inc.' },
+      { name: 'jobTitle', label: 'Job Title', placeholder: 'Software Engineer' },
+      { name: 'website', label: 'Website', placeholder: 'https://example.com' },
+      { name: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/john' },
+      { name: 'github', label: 'GitHub', placeholder: 'https://github.com/john' },
+      { name: 'portfolio', label: 'Portfolio', placeholder: 'https://john.dev' },
+    ],
+  },
+  {
+    title: 'Professional',
+    fields: [
+      { name: 'yearsExperience', label: 'Years of Experience', placeholder: '5' },
+      { name: 'noticePeriod', label: 'Notice Period', placeholder: '30 days' },
+      { name: 'currentCtc', label: 'Current Salary / CTC', placeholder: '12 LPA' },
+      { name: 'expectedCtc', label: 'Expected Salary / CTC', placeholder: '18 LPA' },
+      { name: 'bio', label: 'Short Bio / About Me', type: 'textarea', placeholder: 'Used for "About yourself" style fields', full: true },
+    ],
+  },
+  {
+    title: 'Address',
+    fields: [
+      { name: 'address1', label: 'Address Line 1', placeholder: '123 Main St' },
+      { name: 'address2', label: 'Address Line 2', placeholder: 'Apt 4B' },
+      { name: 'city', label: 'City', placeholder: 'San Francisco' },
+      { name: 'state', label: 'State/Province', placeholder: 'CA' },
+      { name: 'zip', label: 'ZIP/Postal', placeholder: '94105' },
+      { name: 'country', label: 'Country', placeholder: 'USA' },
+    ],
+  },
+]
 
 function Options() {
   // active profile data
@@ -107,7 +171,8 @@ function Options() {
   const clearSection = (keys) => {
     setProfile((p) => {
       const next = { ...p }
-      keys.forEach((k) => { delete next[k] })
+      // Set to '' (not delete) so the save, which merges into stored data, actually clears them
+      keys.forEach((k) => { next[k] = '' })
       return next
     })
   }
@@ -527,49 +592,25 @@ function Options() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <section className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <h2 className="text-base font-semibold">Profile</h2>
-                {/* Contact */}
-                <div className="flex items-center justify-between mt-2 mb-3">
-                  <h3 className="text-sm font-semibold">Contact</h3>
-                  <div className="flex items-center gap-3 text-xs text-gray-600">
-                    <span>{countFilled(['fullName','email','phone'])}/3 filled</span>
-                    <button onClick={() => clearSection(['fullName','email','phone'])} className="px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50">Clear</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label="Full Name" name="fullName" placeholder="John Doe" value={profile?.fullName} onChange={onFieldChange} />
-                  <Field label="Email" name="email" placeholder="john@example.com" value={profile?.email} onChange={onFieldChange} />
-                  <Field label="Phone" name="phone" placeholder="+1 555-1234" value={profile?.phone} onChange={onFieldChange} />
-                </div>
-                {/* Work */}
-                <div className="flex items-center justify-between mt-6 mb-3">
-                  <h3 className="text-sm font-semibold">Work</h3>
-                  <div className="flex items-center gap-3 text-xs text-gray-600">
-                    <span>{countFilled(['company','jobTitle','website','linkedin'])}/4 filled</span>
-                    <button onClick={() => clearSection(['company','jobTitle','website','linkedin'])} className="px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50">Clear</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label="Company" name="company" placeholder="Acme Inc." value={profile?.company} onChange={onFieldChange} />
-                  <Field label="Job Title" name="jobTitle" placeholder="Software Engineer" value={profile?.jobTitle} onChange={onFieldChange} />
-                  <Field label="Website" name="website" placeholder="https://example.com" value={profile?.website} onChange={onFieldChange} />
-                  <Field label="LinkedIn" name="linkedin" placeholder="https://linkedin.com/in/john" value={profile?.linkedin} onChange={onFieldChange} />
-                </div>
-                {/* Address */}
-                <div className="flex items-center justify-between mt-6 mb-3">
-                  <h3 className="text-sm font-semibold">Address</h3>
-                  <div className="flex items-center gap-3 text-xs text-gray-600">
-                    <span>{countFilled(['address1','address2','city','state','zip','country'])}/6 filled</span>
-                    <button onClick={() => clearSection(['address1','address2','city','state','zip','country'])} className="px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50">Clear</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label="Address Line 1" name="address1" placeholder="123 Main St" value={profile?.address1} onChange={onFieldChange} />
-                  <Field label="Address Line 2" name="address2" placeholder="Apt 4B" value={profile?.address2} onChange={onFieldChange} />
-                  <Field label="City" name="city" placeholder="San Francisco" value={profile?.city} onChange={onFieldChange} />
-                  <Field label="State/Province" name="state" placeholder="CA" value={profile?.state} onChange={onFieldChange} />
-                  <Field label="ZIP/Postal" name="zip" placeholder="94105" value={profile?.zip} onChange={onFieldChange} />
-                  <Field label="Country" name="country" placeholder="USA" value={profile?.country} onChange={onFieldChange} />
-                </div>
+                {PROFILE_SECTIONS.map((sec, i) => {
+                  const keys = sec.fields.map((f) => f.name)
+                  return (
+                    <React.Fragment key={sec.title}>
+                      <div className={`flex items-center justify-between ${i === 0 ? 'mt-2' : 'mt-6'} mb-3`}>
+                        <h3 className="text-sm font-semibold">{sec.title}</h3>
+                        <div className="flex items-center gap-3 text-xs text-gray-600">
+                          <span>{countFilled(keys)}/{keys.length} filled</span>
+                          <button onClick={() => clearSection(keys)} className="px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50">Clear</button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {sec.fields.map((f) => (
+                          <Field key={f.name} {...f} value={profile?.[f.name]} onChange={onFieldChange} />
+                        ))}
+                      </div>
+                    </React.Fragment>
+                  )
+                })}
               </section>
 
               <aside className="lg:col-span-1 space-y-6">

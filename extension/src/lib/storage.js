@@ -1,11 +1,18 @@
 // Storage helpers with multi-profile support. Also exports legacy getProfile/saveProfile wrappers.
 
-const DEFAULT_PROFILE_DATA = {
+export const SCHEMA_VERSION = 2
+
+export const DEFAULT_PROFILE_DATA = {
   fullName: '',
   firstName: '',
+  middleName: '',
   lastName: '',
+  username: '',
+  dob: '',
+  gender: '',
   email: '',
   phone: '',
+  phone2: '',
   company: '',
   jobTitle: '',
   address1: '',
@@ -16,6 +23,13 @@ const DEFAULT_PROFILE_DATA = {
   country: '',
   website: '',
   linkedin: '',
+  github: '',
+  portfolio: '',
+  yearsExperience: '',
+  currentCtc: '',
+  expectedCtc: '',
+  noticePeriod: '',
+  bio: '',
   customFields: []
 }
 
@@ -24,20 +38,31 @@ function genId() {
   return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
+// Adds any new default keys to stored profiles without touching existing values.
+export function migrateProfiles(profiles) {
+  return profiles.map((p) => ({ ...p, data: { ...DEFAULT_PROFILE_DATA, ...(p.data || {}) } }))
+}
+
 async function ensureProfiles() {
-  const { profiles, activeProfileId, profile: legacy } = await chrome.storage.local.get([
+  const { profiles, activeProfileId, profile: legacy, schemaVersion } = await chrome.storage.local.get([
     'profiles',
     'activeProfileId',
-    'profile'
+    'profile',
+    'schemaVersion'
   ])
   if (Array.isArray(profiles) && profiles.length) {
+    if ((schemaVersion || 1) < SCHEMA_VERSION) {
+      const migrated = migrateProfiles(profiles)
+      await chrome.storage.local.set({ profiles: migrated, schemaVersion: SCHEMA_VERSION })
+      return { profiles: migrated, activeProfileId: activeProfileId || migrated[0].id }
+    }
     return { profiles, activeProfileId: activeProfileId || profiles[0].id }
   }
   // migrate legacy single profile if present
   const data = legacy || DEFAULT_PROFILE_DATA
   const id = genId()
-  const migrated = [{ id, name: 'Default', data }]
-  await chrome.storage.local.set({ profiles: migrated, activeProfileId: id })
+  const migrated = [{ id, name: 'Default', data: { ...DEFAULT_PROFILE_DATA, ...data } }]
+  await chrome.storage.local.set({ profiles: migrated, activeProfileId: id, schemaVersion: SCHEMA_VERSION })
   return { profiles: migrated, activeProfileId: id }
 }
 
