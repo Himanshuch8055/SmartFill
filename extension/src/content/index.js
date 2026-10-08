@@ -453,7 +453,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 
     // Merge maps (priority: rules -> custom -> auto)
-    const merged = { ...autoMap, ...customMap, ...ruleMap }
+    // Elements claimed by rules/custom fields are removed from auto-detected lists.
+    const claimed = new Set([...Object.values(customMap), ...Object.values(ruleMap)])
+    const merged = {}
+    for (const [key, list] of Object.entries(autoMap)) {
+      const rest = list.filter((t) => !claimed.has(t))
+      if (rest.length) merged[key] = rest
+    }
+    for (const [key, el] of Object.entries({ ...customMap, ...ruleMap })) {
+      merged[key] = [el, ...(merged[key] || [])]
+    }
 
     // Merge custom field values into profile for fillFields
     const customVals = Object.fromEntries(customs.filter((c) => c?.name).map((c) => [c.name, c.value]))

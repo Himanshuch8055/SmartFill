@@ -1,43 +1,56 @@
-// Simple field detection and mapping heuristics
-// Returns a map of logical field keys to DOM elements
+// Field detection (weighted scoring) and filling.
+// findFillableInputs() returns { key: HTMLElement[] } so repeated sections (billing/shipping) all fill.
 
-const KEYWORDS = [
-  { key: 'fullName', patterns: [/name/i, /full.?name/i] },
-  { key: 'firstName', patterns: [/first.?name/i, /^fname$/i] },
-  { key: 'lastName', patterns: [/last.?name/i, /^lname$/i, /surname/i, /family.?name/i] },
-  { key: 'email', patterns: [/email/i, /^e-?mail$/i] },
-  { key: 'phone', patterns: [/phone/i, /mobile/i, /tel/i, /phone.?number/i] },
-  { key: 'company', patterns: [/company/i, /organization/i, /employer/i] },
-  { key: 'jobTitle', patterns: [/title/i, /position/i, /role/i] },
-  { key: 'address1', patterns: [/^address$/i, /address(?!.*(2|line\s*2))/i, /street/i, /address\s*line\s*1/i] },
-  { key: 'address2', patterns: [/address.*(2|line\s*2)/i, /apt|suite|unit/i] },
-  { key: 'city', patterns: [/city/i, /town/i] },
-  { key: 'state', patterns: [/state/i, /province/i, /region/i] },
-  { key: 'zip', patterns: [/zip/i, /postal/i] },
-  { key: 'country', patterns: [/country/i] },
-  { key: 'website', patterns: [/website/i, /url/i] },
-  { key: 'linkedin', patterns: [/linkedin/i] },
+// Order matters for ties: specific keys come before generic ones.
+// `ac`: autocomplete tokens, `re`: positive pattern, `not`: negative pattern, `type`: input types.
+export const FIELD_SPECS = [
+  { key: 'firstName', ac: ['given-name'], re: /\b(first|given|fore)\s*name\b|\bfname\b/ },
+  { key: 'middleName', ac: ['additional-name'], re: /\bmiddle\s*name\b|\bmname\b/ },
+  { key: 'lastName', ac: ['family-name'], re: /\b(last|family|sur)\s*name\b|\bsurname\b|\blname\b/ },
+  { key: 'username', ac: ['username'], re: /\buser\s*name\b|\blogin\b|\bhandle\b/ },
+  { key: 'email', ac: ['email'], re: /\be\s*-?\s*mail\b/, not: /confirm|verify|re\s*enter|repeat/, type: ['email'] },
+  { key: 'phone2', re: /\b(alternate|alternative|secondary|other)\s*(phone|mobile|contact|number)\b|\bphone\s*2\b/ },
+  { key: 'phone', ac: ['tel', 'tel-national'], re: /\bphone\b|\bmobile\b|\btel\b|\btelephone\b|\bcontact\s*(no|number)\b|\bcell\b/, not: /\bcode\b|\bext(ension)?\b/, type: ['tel'] },
+  { key: 'dob', ac: ['bday'], re: /\b(date\s*of\s*birth|birth\s*date|birthday|dob)\b/ },
+  { key: 'gender', ac: ['sex'], re: /\bgender\b|\bsex\b/ },
+  { key: 'company', ac: ['organization'], re: /\bcompany\b|\borgani[sz]ation\b|\bemployer\b|\bbusiness\s*name\b/, not: /\bsize\b|\btype\b|\bwebsite\b|\burl\b/ },
+  { key: 'jobTitle', ac: ['organization-title'], re: /\bjob\s*title\b|\bdesignation\b|\bposition\b|\bcurrent\s*(role|title)\b|\b(your|job)\s*role\b/, not: /\bapplying\b/ },
+  { key: 'yearsExperience', re: /\b(years?\s*of\s*experience|total\s*experience|experience\s*\(?\s*(in\s*)?years?)\b/ },
+  { key: 'currentCtc', re: /\bcurrent\s*(ctc|salary|compensation|pay)\b/ },
+  { key: 'expectedCtc', re: /\bexpected\s*(ctc|salary|compensation|pay)\b|\bsalary\s*expectation/ },
+  { key: 'noticePeriod', re: /\bnotice\s*period\b/ },
+  { key: 'address2', ac: ['address-line2'], re: /\baddress\s*(line\s*)?2\b|\bapartment\b|\bapt\b|\bsuite\b|\bunit\b|\blandmark\b/ },
+  { key: 'address1', ac: ['address-line1', 'street-address'], re: /\baddress\s*(line\s*)?1?\b|\bstreet\b/, not: /\be\s*-?\s*mail\b|\bweb\b|\bip\b|\b(line\s*)?2\b/ },
+  { key: 'city', ac: ['address-level2'], re: /\bcity\b|\btown\b/, not: /\bethnicity\b/ },
+  { key: 'state', ac: ['address-level1'], re: /\bstate\b|\bprovince\b|\bregion\b|\bcounty\b/, not: /statement|\bcountry\b/ },
+  { key: 'zip', ac: ['postal-code'], re: /\bzip\b|\bpostal\b|\bpost\s*code\b|\bpin\s*code\b|\bpincode\b/ },
+  { key: 'country', ac: ['country', 'country-name'], re: /\bcountry\b/, not: /\bcode\b/ },
+  { key: 'linkedin', re: /\blinked\s*in\b/ },
+  { key: 'github', re: /\bgit\s*hub\b/ },
+  { key: 'portfolio', re: /\bportfolio\b/ },
+  { key: 'website', ac: ['url'], re: /\bwebsite\b|\bhomepage\b|\bpersonal\s*(site|url)\b/, type: ['url'] },
+  { key: 'bio', re: /\babout\s*(you|yourself|me)\b|\bbio\b|\bsummary\b|\bcover\s*letter\b/ },
+  // Generic "name" last so first/last/user/company names win.
+  { key: 'fullName', ac: ['name'], re: /\b(full\s*)?name\b|\byour\s*name\b/, not: /\b(first|last|middle|given|family|sur|user|company|business|file|account|card|nick|display|father|mother|spouse|organi[sz]ation|school|college|university|project|product)\b/ },
 ]
 
-function guessKeyFromLabelText(text) {
-  if (!text) return null
-  const t = String(text).trim()
-  if (/full\s*name/i.test(t)) return 'fullName'
-  if (/first\s*name/i.test(t)) return 'firstName'
-  if (/last\s*name|surname|family\s*name/i.test(t)) return 'lastName'
-  if (/email/i.test(t)) return 'email'
-  if (/phone|mobile|tel|phone\s*number/i.test(t)) return 'phone'
-  if (/company|organization|employer/i.test(t)) return 'company'
-  if (/job\s*title|position|role/i.test(t)) return 'jobTitle'
-  if (/address\s*line\s*1|^address$/i.test(t)) return 'address1'
-  if (/address\s*line\s*2|apt|suite|unit/i.test(t)) return 'address2'
-  if (/city|town/i.test(t)) return 'city'
-  if (/state|province|region/i.test(t)) return 'state'
-  if (/zip|postal/i.test(t)) return 'zip'
-  if (/country/i.test(t)) return 'country'
-  if (/website|url/i.test(t)) return 'website'
-  if (/linkedin/i.test(t)) return 'linkedin'
-  return null
+const WEIGHTS = { ac: 100, label: 60, nameId: 40, placeholder: 30, type: 20 }
+
+const SENSITIVE_AC = /^(cc-|current-password|new-password|one-time-code)/
+const SENSITIVE_TEXT = /\b(password|passcode|otp|one\s*time|captcha|cvv|cvc|card\s*(number|no)|credit\s*card|debit\s*card|ssn|social\s*security|aadhaa?r|pan\s*(number|no)|account\s*number|routing|iban|security\s*code)\b/
+const SKIP_TYPES = new Set(['hidden', 'password', 'submit', 'button', 'reset', 'image', 'file', 'range', 'color', 'search'])
+
+const QUESTION_ROOT = '[role="listitem"], .freebirdFormviewerComponentsQuestionBaseRoot, .m2, .o3Dpx'
+const QUESTION_TITLE = '[role="heading"], .freebirdFormviewerComponentsQuestionBaseTitle, .M7eMe, label'
+
+// "firstName" / "first_name" / "billing-first-name" -> "first name"
+export function normalize(text) {
+  return String(text || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_\-.\[\]:*]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
 }
 
 function textFromAriaLabelledBy(node) {
@@ -45,192 +58,288 @@ function textFromAriaLabelledBy(node) {
   if (!ids) return ''
   return ids
     .split(/\s+/)
-    .map((id) => document.getElementById(id)?.textContent?.trim())
+    .map((id) => node.ownerDocument.getElementById(id)?.textContent?.trim())
     .filter(Boolean)
     .join(' ')
 }
 
-function matchKey(input) {
-  const labelledByText = textFromAriaLabelledBy(input)
-  const nearbyTitle = input.closest('[role="listitem"], .freebirdFormviewerComponentsQuestionBaseRoot, .m2, .o3Dpx')?.querySelector('[role="heading"], .freebirdFormviewerComponentsQuestionBaseTitle, label')?.textContent || ''
-  const attrs = [
-    input.getAttribute('name'),
-    input.getAttribute('id'),
-    input.getAttribute('placeholder'),
-    input.getAttribute('aria-label'),
-    input.getAttribute('autocomplete'),
-    labelledByText,
-    nearbyTitle,
-  ]
-    .filter(Boolean)
-    .join(' ')
+function labelText(el) {
+  const parts = []
+  // el.labels covers both <label for> and wrapping labels
+  for (const lbl of el.labels || []) parts.push(lbl.textContent)
+  if (!el.labels) {
+    const wrapping = el.closest('label')
+    if (wrapping) parts.push(wrapping.textContent)
+  }
+  parts.push(el.getAttribute('aria-label'), textFromAriaLabelledBy(el))
+  if (!parts.some((p) => p && p.trim())) {
+    const title = el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent
+    if (title) parts.push(title)
+  }
+  return normalize(parts.filter(Boolean).join(' '))
+}
 
-  for (const k of KEYWORDS) {
-    if (k.patterns.some((re) => re.test(attrs))) return k.key
+export function getSignals(el) {
+  return {
+    ac: String(el.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/).filter(Boolean),
+    label: labelText(el),
+    nameId: normalize([el.getAttribute('name'), el.id].filter(Boolean).join(' ')),
+    placeholder: normalize(el.getAttribute('placeholder')),
+    type: String(el.getAttribute('type') || '').toLowerCase(),
   }
-  const guess = guessKeyFromLabelText(attrs)
-  if (guess) return guess
-  // semantic types
-  switch (input.type) {
-    case 'email':
-      return 'email'
-    case 'tel':
-      return 'phone'
-    case 'url':
-      return 'website'
-    default:
-      return null
+}
+
+export function isSensitive(el, signals = getSignals(el)) {
+  if (signals.type === 'password') return true
+  if (signals.ac.some((t) => SENSITIVE_AC.test(t))) return true
+  return SENSITIVE_TEXT.test(`${signals.label} ${signals.nameId} ${signals.placeholder}`)
+}
+
+function textMatches(spec, text) {
+  if (!text) return false
+  return spec.re.test(text) && !(spec.not && spec.not.test(text))
+}
+
+// Returns { key, score } or null
+export function scoreElement(el) {
+  const s = getSignals(el)
+  if (isSensitive(el, s)) return null
+  let best = null
+  for (const spec of FIELD_SPECS) {
+    let score = 0
+    if (spec.ac && s.ac.some((t) => spec.ac.includes(t))) score += WEIGHTS.ac
+    if (textMatches(spec, s.label)) score += WEIGHTS.label
+    if (textMatches(spec, s.nameId)) score += WEIGHTS.nameId
+    if (textMatches(spec, s.placeholder)) score += WEIGHTS.placeholder
+    if (spec.type && spec.type.includes(s.type)) score += WEIGHTS.type
+    if (score > 0 && (!best || score > best.score)) best = { key: spec.key, score }
   }
+  return best
+}
+
+const CANDIDATE_SELECTOR =
+  'input:not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly]), select:not([disabled]), [role="textbox"], [contenteditable="true"]:not([aria-disabled="true"])'
+
+function isVisible(el) {
+  if (el.closest('[hidden], [aria-hidden="true"]')) return false
+  const cs = el.ownerDocument.defaultView?.getComputedStyle?.(el)
+  return !cs || (cs.display !== 'none' && cs.visibility !== 'hidden')
 }
 
 export function findFillableInputs(root = document) {
-  const candidates = Array.from(
-    root.querySelectorAll(
-      'input:not([type=hidden]):not([disabled]), textarea:not([disabled]), select:not([disabled]), [contenteditable="true"]:not([aria-disabled="true"])'
-    )
-  )
-
   const map = {}
-
-  // Google Forms: map question containers to their textbox using the question title
-  try {
-    const questionRoots = root.querySelectorAll('.freebirdFormviewerComponentsQuestionBaseRoot, [role="listitem"].Qr7Oae')
-    questionRoots.forEach((q) => {
-      const title = q.querySelector('.freebirdFormviewerComponentsQuestionBaseTitle, [role="heading"], .M7eMe')?.textContent?.trim()
-      const textbox = q.querySelector('[role="textbox"], [contenteditable]:not([contenteditable="false"])')
-      const key = guessKeyFromLabelText(title)
-      if (title && textbox && key && !map[key]) {
-        map[key] = textbox
-      }
-    })
-  } catch {}
-
-  // Fallback: scan all textboxes and attempt to resolve a title per field
-  try {
-    const textboxes = root.querySelectorAll('[role="textbox"], [contenteditable]:not([contenteditable="false"])')
-    textboxes.forEach((tb) => {
-      const title = tb.closest('[role="listitem"], .freebirdFormviewerComponentsQuestionBaseRoot, .m2, .o3Dpx')?.querySelector('[role="heading"], .freebirdFormviewerComponentsQuestionBaseTitle, .M7eMe, label')?.textContent?.trim()
-      const key = guessKeyFromLabelText(title) || matchKeyForContentEditable(tb)
-      if (key && !map[key]) map[key] = tb
-    })
-  } catch {}
-
-  for (const el of candidates) {
-    const key = el.isContentEditable ? matchKeyForContentEditable(el) : matchKey(el)
-    if (key && !map[key]) map[key] = el
+  const seen = new Set()
+  const radioGroups = new Set()
+  for (const el of root.querySelectorAll(CANDIDATE_SELECTOR)) {
+    if (seen.has(el)) continue
+    seen.add(el)
+    const type = String(el.getAttribute('type') || '').toLowerCase()
+    if (el.tagName === 'INPUT' && SKIP_TYPES.has(type)) continue
+    if (!isVisible(el)) continue
+    // Radios: score once per group, using the group's legend/question text
+    if (type === 'radio') {
+      const name = el.getAttribute('name')
+      if (!name || radioGroups.has(name)) continue
+      radioGroups.add(name)
+      const group = Array.from(root.querySelectorAll('input[type="radio"]')).filter((r) => r.name === name && !r.disabled)
+      const legend = normalize(el.closest('fieldset')?.querySelector('legend')?.textContent || el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent || '')
+      const text = `${legend} ${normalize(name)}`
+      const spec = FIELD_SPECS.find((sp) => textMatches(sp, text))
+      if (spec) (map[spec.key] ||= []).push(group)
+      continue
+    }
+    const hit = scoreElement(el)
+    if (hit) (map[hit.key] ||= []).push(el)
   }
-
   try {
     const keys = Object.keys(map)
     if (keys.length) console.debug('[SmartFill] Detected fields:', keys)
-    const counts = {
-      inputs: root.querySelectorAll('input:not([type=hidden]):not([disabled])').length,
-      textareas: root.querySelectorAll('textarea:not([disabled])').length,
-      selects: root.querySelectorAll('select:not([disabled])').length,
-      textboxes: root.querySelectorAll('[role="textbox"], [contenteditable]:not([contenteditable="false"])').length,
-    }
-    console.debug('[SmartFill] Page controls:', counts)
   } catch {}
-
   return map
 }
 
+// ---------- value adapters ----------
+
+export function deriveProfile(profile = {}) {
+  const p = { ...profile }
+  const has = (v) => v != null && String(v).trim() !== ''
+  if (!has(p.fullName) && (has(p.firstName) || has(p.lastName))) {
+    p.fullName = [p.firstName, p.middleName, p.lastName].filter(has).join(' ')
+  }
+  if (has(p.fullName) && (!has(p.firstName) || !has(p.lastName))) {
+    const parts = String(p.fullName).trim().split(/\s+/)
+    if (!has(p.firstName)) p.firstName = parts[0]
+    if (!has(p.lastName) && parts.length > 1) p.lastName = parts[parts.length - 1]
+  }
+  return p
+}
+
+function adaptPhone(el, value) {
+  const max = Number(el.getAttribute('maxlength')) || 0
+  const digits = String(value).replace(/\D/g, '')
+  if (max > 0 && String(value).length > max && digits.length >= max) return digits.slice(-max)
+  return value
+}
+
+// Accepts ISO (yyyy-mm-dd), dd/mm/yyyy, dd-mm-yyyy
+export function toIsoDate(value) {
+  const v = String(value).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+  const m = v.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/)
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+  const d = new Date(v)
+  return isNaN(d) ? v : d.toISOString().slice(0, 10)
+}
+
+function adaptValue(key, el, value) {
+  if (value == null) return value
+  const type = String(el.getAttribute?.('type') || '').toLowerCase()
+  if ((key === 'phone' || key === 'phone2') && el.tagName === 'INPUT') return adaptPhone(el, value)
+  if (type === 'date') return toIsoDate(value)
+  return value
+}
+
+const ALIASES = {
+  india: ['in', 'ind', 'bharat'],
+  'united states': ['us', 'usa', 'united states of america', 'america'],
+  'united kingdom': ['uk', 'gb', 'gbr', 'great britain', 'england'],
+  'united arab emirates': ['ae', 'uae'],
+  canada: ['ca', 'can'],
+  australia: ['au', 'aus'],
+  germany: ['de', 'deu'],
+  male: ['m', 'man'],
+  female: ['f', 'woman'],
+}
+
+function variants(value) {
+  const v = String(value).trim().toLowerCase()
+  const out = new Set([v])
+  for (const [canon, alts] of Object.entries(ALIASES)) {
+    if (canon === v || alts.includes(v)) {
+      out.add(canon)
+      alts.forEach((a) => out.add(a))
+    }
+  }
+  return out
+}
+
+export function pickOption(options, value) {
+  const vs = variants(value)
+  const norm = (s) => String(s || '').trim().toLowerCase()
+  const list = Array.from(options)
+  return (
+    list.find((o) => vs.has(norm(o.value)) || vs.has(norm(o.text ?? o.label))) ||
+    list.find((o) => {
+      const t = norm(o.text ?? o.label)
+      return t && [...vs].some((v) => v.length > 2 && (t.startsWith(v) || v.startsWith(t)))
+    }) ||
+    null
+  )
+}
+
+// ---------- filling ----------
+
 function setNativeValue(el, value) {
-  const proto = el instanceof HTMLTextAreaElement
-    ? HTMLTextAreaElement.prototype
-    : HTMLInputElement.prototype
+  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
   const desc = Object.getOwnPropertyDescriptor(proto, 'value')
-  desc?.set?.call(el, value)
+  if (desc?.set) desc.set.call(el, value)
+  else el.value = value
 }
 
 function dispatchAll(el) {
   try {
     el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, data: String(el.value ?? ''), inputType: 'insertText' }))
-  } catch {}
+  } catch {
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+  el.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
+function radioLabel(r) {
+  const lbl = r.labels?.[0] || r.closest('label')
+  return lbl?.textContent || r.getAttribute('aria-label') || ''
+}
+
+function fillRadioGroup(group, value) {
+  const opt = pickOption(group.map((r) => ({ value: r.value, text: radioLabel(r), el: r })), value)
+  if (!opt) return false
+  opt.el.click()
+  if (!opt.el.checked) {
+    opt.el.checked = true
+    dispatchAll(opt.el)
+  }
+  return true
+}
+
+function fillContentEditable(el, value) {
+  try {
+    try { el.click() } catch {}
+    try { el.focus({ preventScroll: true }) } catch {}
+    const sel = window.getSelection()
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    sel.removeAllRanges()
+    sel.addRange(range)
+    try {
+      el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: String(value) }))
+    } catch {}
+    const ok = document.execCommand && document.execCommand('insertText', false, String(value))
+    if (!ok) el.textContent = String(value)
+  } catch {
+    el.textContent = String(value)
+  }
   el.dispatchEvent(new Event('input', { bubbles: true }))
   el.dispatchEvent(new Event('change', { bubbles: true }))
 }
 
-function matchKeyForContentEditable(node) {
-  // Walk up to find an associated label via aria-label or nearest labelled element
-  const aria = node.getAttribute('aria-label') || node.closest('[aria-label]')?.getAttribute('aria-label') || ''
-  const labelledByText = textFromAriaLabelledBy(node)
-  const nearbyTitle = node.closest('[role="listitem"], .freebirdFormviewerComponentsQuestionBaseRoot, .m2, .o3Dpx')?.querySelector('[role="heading"], .freebirdFormviewerComponentsQuestionBaseTitle, label')?.textContent || ''
-
-  const labelText = [aria, labelledByText, nearbyTitle].filter(Boolean).join(' ')
-  for (const k of KEYWORDS) {
-    if (k.patterns.some((re) => re.test(labelText))) return k.key
+// Fill one target (element or radio group). Returns true if something changed.
+export function fillElement(key, target, value) {
+  if (value == null || String(value) === '') return false
+  if (Array.isArray(target)) return fillRadioGroup(target, value)
+  const el = target
+  if (!el?.isConnected) return false
+  if (el.tagName === 'INPUT' && isSensitive(el)) return false
+  try { el.focus({ preventScroll: true }) } catch {}
+  const v = adaptValue(key, el, value)
+  const type = String(el.getAttribute('type') || '').toLowerCase()
+  if (el.tagName === 'SELECT') {
+    const opt = pickOption(el.options, v)
+    if (!opt) return false
+    el.value = opt.value
+    dispatchAll(el)
+    return true
   }
-  return guessKeyFromLabelText(labelText)
+  if (type === 'checkbox') {
+    const want = /^(yes|true|1|y|on)$/i.test(String(v))
+    if (el.checked !== want) el.click()
+    return true
+  }
+  if (el.isContentEditable || el.getAttribute('role') === 'textbox' && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') {
+    fillContentEditable(el, v)
+    return true
+  }
+  setNativeValue(el, String(v))
+  dispatchAll(el)
+  return true
 }
 
+// fieldMap: { key: HTMLElement | HTMLElement[] | RadioGroup[] }
 export function fillFields(fieldMap, profile) {
   if (!profile) return { filled: 0 }
+  const data = deriveProfile(profile)
   let count = 0
-  for (const [key, el] of Object.entries(fieldMap)) {
-    const value = profile[key]
+  for (const [key, targets] of Object.entries(fieldMap)) {
+    const value = data[key]
     if (value == null) continue
-    // Ensure target gets focus (many frameworks attach listeners on focus)
-    try { el.focus({ preventScroll: true }) } catch {}
-    if (el.tagName === 'SELECT') {
-      const option = Array.from(el.options).find(
-        (o) => o.value?.toLowerCase() === String(value).toLowerCase() ||
-               o.text?.toLowerCase() === String(value).toLowerCase()
-      )
-      if (option) {
-        el.value = option.value
-        dispatchAll(el)
-        count++
-      }
-    } else if (el.isContentEditable) {
-      // Google Forms-friendly fill sequence
+    // Each entry is an element or a radio group (array of inputs).
+    const list = Array.isArray(targets) ? targets : [targets]
+    for (const t of list) {
       try {
-        // Focus + click to ensure caret and listeners
-        try { el.click() } catch {}
-        try { el.focus({ preventScroll: true }) } catch {}
-
-        // Select all existing content
-        const sel = window.getSelection()
-        const range = document.createRange()
-        range.selectNodeContents(el)
-        sel.removeAllRanges()
-        sel.addRange(range)
-
-        // Fire beforeinput (insertFromPaste) so frameworks prepare state
-        try {
-          el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: String(value) }))
-        } catch {}
-
-        // Replace content via execCommand, widely supported on Forms
-        document.execCommand('selectAll', false, undefined)
-        const ok = document.execCommand('insertText', false, String(value))
-        if (!ok) {
-          // Fallback
-          el.textContent = String(value)
-        }
-
-        // Key events can wake some listeners
-        try {
-          el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-          el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }))
-        } catch {}
-      } catch {
-        el.textContent = String(value)
-      }
-      // Finalize with input/change
-      el.dispatchEvent(new Event('input', { bubbles: true }))
-      el.dispatchEvent(new Event('change', { bubbles: true }))
-      count++
-    } else {
-      try {
-        setNativeValue(el, value)
+        if (fillElement(key, t, value)) count++
       } catch (e) {
-        el.value = value
+        console.debug('[SmartFill] fill failed', key, e)
       }
-      dispatchAll(el)
-      count++
     }
-    try { console.debug('[SmartFill] Filled', key) } catch {}
   }
   try { console.debug('[SmartFill] Total filled:', count) } catch {}
   return { filled: count }
