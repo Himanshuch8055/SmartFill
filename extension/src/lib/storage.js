@@ -113,6 +113,9 @@ export async function deleteProfile(id) {
   const next = profiles.filter((p) => p.id !== id)
   const nextActive = activeProfileId === id && next.length ? next[0].id : activeProfileId
   await saveProfiles(next, nextActive)
+  const siteProfiles = await getSiteProfiles()
+  const cleaned = Object.fromEntries(Object.entries(siteProfiles).filter(([, pid]) => pid !== id))
+  if (Object.keys(cleaned).length !== Object.keys(siteProfiles).length) await chrome.storage.local.set({ siteProfiles: cleaned })
 }
 
 export async function duplicateProfile(id) {
@@ -125,11 +128,27 @@ export async function duplicateProfile(id) {
   return copyId
 }
 
+// Settings included in backups (profiles and rules are handled separately).
+const BACKUP_SETTING_KEYS = ['widgetEnabled', 'fillMode', 'popupProfileIds']
+
+// Full backup. version 2 adds rules, blocked sites, per-site profiles and settings.
 export async function exportProfiles() {
   const { profiles, activeProfileId } = await ensureProfiles()
-  return { profiles, activeProfileId, version: 1 }
+  const extra = await chrome.storage.local.get(['rules', 'blockedSites', 'siteProfiles', ...BACKUP_SETTING_KEYS])
+  const settings = Object.fromEntries(BACKUP_SETTING_KEYS.filter((k) => k in extra).map((k) => [k, extra[k]]))
+  return {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    profiles,
+    activeProfileId,
+    rules: extra.rules || [],
+    blockedSites: extra.blockedSites || [],
+    siteProfiles: extra.siteProfiles || {},
+    settings,
+  }
 }
 
+// Accepts version 1 (profiles only) and version 2 (full backup) files.
 export async function importProfiles(payload) {
   if (!payload || !Array.isArray(payload.profiles)) throw new Error('Invalid profiles payload')
   const sanitized = payload.profiles.map((p) => ({
@@ -138,7 +157,58 @@ export async function importProfiles(payload) {
     data: { ...DEFAULT_PROFILE_DATA, ...(p.data || {}) }
   }))
   const active = sanitized.find((p) => p.id === payload.activeProfileId)?.id || sanitized[0]?.id
-  await chrome.storage.local.set({ profiles: sanitized, activeProfileId: active })
+  const next = { profiles: sanitized, activeProfileId: active, schemaVersion: SCHEMA_VERSION }
+  if (payload.version >= 2) {
+    if (Array.isArray(payload.rules)) next.rules = payload.rules
+    if (Array.isArray(payload.blockedSites)) next.blockedSites = payload.blockedSites.map(String)
+    if (payload.siteProfiles && typeof payload.siteProfiles === 'object') {
+      const ids = new Set(sanitized.map((p) => p.id))
+      next.siteProfiles = Object.fromEntries(Object.entries(payload.siteProfiles).filter(([, id]) => ids.has(id)))
+    }
+    for (const k of BACKUP_SETTING_KEYS) if (payload.settings && k in payload.settings) next[k] = payload.settings[k]
+  }
+  await chrome.storage.local.set(next)
+}
+
+// ---------- Per-site controls ----------
+
+export async function getBlockedSites() {
+  const { blockedSites } = await chrome.storage.local.get(['blockedSites'])
+  return Array.isArray(blockedSites) ? blockedSites : []
+}
+
+export async function isSiteBlocked(host) {
+  return !!host && (await getBlockedSites()).includes(host)
+}
+
+export async function setSiteBlocked(host, blocked) {
+  const list = (await getBlockedSites()).filter((h) => h !== host)
+  if (blocked) list.push(host)
+  await chrome.storage.local.set({ blockedSites: list })
+}
+
+export async function getSiteProfiles() {
+  const { siteProfiles } = await chrome.storage.local.get(['siteProfiles'])
+  return siteProfiles && typeof siteProfiles === 'object' ? siteProfiles : {}
+}
+
+export async function setSiteProfile(host, profileId) {
+  const map = { ...(await getSiteProfiles()) }
+  if (profileId) map[host] = profileId
+  else delete map[host]
+  await chrome.storage.local.set({ siteProfiles: map })
+}
+
+// Profile data to use on a host: the site's default profile if set, else the active one.
+export async function getProfileForHost(host) {
+  const siteProfiles = await getSiteProfiles()
+  const id = host && siteProfiles[host]
+  if (id) {
+    const { profiles } = await ensureProfiles()
+    const found = profiles.find((p) => p.id === id)
+    if (found) return found
+  }
+  return getActiveProfile()
 }
 
 // Legacy wrappers for compatibility with existing code

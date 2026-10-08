@@ -52,6 +52,18 @@ function ensureWidget() {
     .sf-status { font-size: 11px; color:#374151; }
     .sf-collapsed { display:none; align-items:center; justify-content:center; width:36px; height:36px; border-radius:9999px; background:#2563eb; color:#fff; box-shadow: 0 10px 24px rgba(0,0,0,0.12); border: none; cursor: move; }
     .sf-collapsed:hover { background:#1e40af; }
+    @media (prefers-color-scheme: dark) {
+      .sf-card { background:#111827; color:#f3f4f6; border-color:#374151; }
+      .sf-header { background: rgba(17,24,39,0.9); border-bottom-color:#1f2937; }
+      .sf-title { color:#f3f4f6; }
+      .sf-header .collapse:hover { background:#1f2937; }
+      .sf-handle { background:#111827; color:#6b7280; }
+      .sf-label { color:#9ca3af; }
+      .sf-select { background:#1f2937; color:#f3f4f6; border-color:#374151; }
+      .sf-btn { background:#1f2937; color:#f3f4f6; border-color:#374151; }
+      .sf-btn:hover { background:#374151; }
+      .sf-status { color:#d1d5db; }
+    }
     .sf-collapsed svg { width:18px; height:18px; }
   `
 
@@ -348,26 +360,31 @@ function removeWidget() {
   if (host) host.remove()
 }
 
-// Initialize based on settings and react to changes
+// Initialize based on settings and react to changes.
+// The widget shows when enabled globally and SmartFill isn't turned off for this site.
+let siteBlocked = false
+
+function applyWidgetState(widgetEnabled, blockedSites) {
+  siteBlocked = Array.isArray(blockedSites) && blockedSites.includes(location.host)
+  if (widgetEnabled === false || siteBlocked) removeWidget()
+  else ensureWidget()
+}
+
 ;(async () => {
   try {
-    const { widgetEnabled } = await chrome.storage.local.get(['widgetEnabled'])
-    if (widgetEnabled === false) {
-      removeWidget()
-    } else {
-      ensureWidget()
-    }
+    const { widgetEnabled, blockedSites } = await chrome.storage.local.get(['widgetEnabled', 'blockedSites'])
+    applyWidgetState(widgetEnabled, blockedSites)
   } catch {
     // default to showing widget on error
     ensureWidget()
   }
 
   try {
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'local' || !('widgetEnabled' in changes)) return
-      const val = changes.widgetEnabled?.newValue
-      if (val === false) removeWidget()
-      else ensureWidget()
+    chrome.storage.onChanged.addListener(async (changes, area) => {
+      if (area !== 'local' || !('widgetEnabled' in changes || 'blockedSites' in changes)) return
+      const { widgetEnabled, blockedSites } = await chrome.storage.local.get(['widgetEnabled', 'blockedSites'])
+      applyWidgetState(widgetEnabled, blockedSites)
+      if (isTop) reportFieldCount()
     })
   } catch {}
 })()
@@ -634,7 +651,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return false
     }
     case 'TOAST': {
-      if (isTop) showToast(msg.text)
+      if (isTop && (!siteBlocked || msg.force)) showToast(msg.text)
       return false
     }
   }
@@ -645,7 +662,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 function reportFieldCount() {
   try {
-    const count = countTargets(findFillableInputs(document))
+    const count = siteBlocked ? 0 : countTargets(findFillableInputs(document))
     chrome.runtime.sendMessage({ type: 'FIELD_COUNT', count }).catch(() => {})
   } catch {}
 }

@@ -13,7 +13,12 @@ import {
   duplicateProfile,
   exportProfiles,
   importProfiles,
-  renameProfile
+  renameProfile,
+  isSiteBlocked,
+  setSiteBlocked,
+  getSiteProfiles,
+  setSiteProfile,
+  getProfileForHost
 } from './lib/storage'
 import { PROFILE_FIELDS } from './lib/profileFields'
 
@@ -29,14 +34,24 @@ async function getActiveTab() {
   return tab
 }
 
+function hostOf(url) {
+  try {
+    return new URL(url).host
+  } catch {
+    return ''
+  }
+}
+
 // preview: true/false forces a mode; undefined uses the user's setting (default: preview)
-async function autofillTab(tabId, { preview, profile } = {}) {
+async function autofillTab(tab, { preview, profile } = {}) {
+  const host = hostOf(tab.url)
+  if (await isSiteBlocked(host)) return { ok: false, error: `SmartFill is turned off on ${host}` }
   const { fillMode } = await chrome.storage.local.get(['fillMode'])
   const usePreview = preview ?? fillMode !== 'instant'
-  const data = profile || (await getProfile())
+  const data = profile || (await getProfileForHost(host))?.data || (await getProfile())
   const rules = await getRules()
   try {
-    const res = await chrome.tabs.sendMessage(tabId, { type: 'AUTOFILL', profile: data, rules, preview: usePreview })
+    const res = await chrome.tabs.sendMessage(tab.id, { type: 'AUTOFILL', profile: data, rules, preview: usePreview })
     return res || { ok: true }
   } catch (e) {
     return { ok: false, error: 'SmartFill cannot run on this page. Try reloading it.' }
@@ -66,7 +81,7 @@ async function cycleProfile(tabId) {
 chrome.commands?.onCommand.addListener(async (command) => {
   const tab = await getActiveTab()
   if (!tab?.id) return
-  if (command === 'fill-form') await autofillTab(tab.id)
+  if (command === 'fill-form') await autofillTab(tab)
   else if (command === 'undo-fill') await undoTab(tab.id)
   else if (command === 'next-profile') await cycleProfile(tab.id)
 })
@@ -81,19 +96,29 @@ function createContextMenus() {
       chrome.contextMenus.create({ id: `sf-field:${f.name}`, parentId: 'sf-field', title: f.label, contexts: ['editable'] })
     }
     chrome.contextMenus.create({ id: 'sf-undo', title: 'SmartFill: Undo last fill', contexts: ['page', 'editable'] })
+    chrome.contextMenus.create({ id: 'sf-toggle-site', title: 'SmartFill: Turn on/off for this site', contexts: ['page', 'editable'] })
   })
 }
 
 chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
   if (!tab?.id) return
   const id = String(info.menuItemId)
+  const host = hostOf(tab.url)
+  if (id === 'sf-toggle-site') {
+    const blocked = !(await isSiteBlocked(host))
+    await setSiteBlocked(host, blocked)
+    const text = blocked ? `SmartFill turned off on ${host}` : `SmartFill turned on for ${host}`
+    chrome.tabs.sendMessage(tab.id, { type: 'TOAST', text, force: true }).catch(() => {})
+    return
+  }
+  if (await isSiteBlocked(host)) return
   if (id === 'sf-fill') {
-    await autofillTab(tab.id)
+    await autofillTab(tab)
   } else if (id === 'sf-undo') {
     await undoTab(tab.id)
   } else if (id.startsWith('sf-field:')) {
     const key = id.slice('sf-field:'.length)
-    const profile = await getProfile()
+    const profile = (await getProfileForHost(host))?.data || (await getProfile())
     chrome.tabs
       .sendMessage(tab.id, { type: 'FILL_FIELD', key, profile }, { frameId: info.frameId ?? 0 })
       .catch(() => {})
@@ -194,12 +219,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, error: 'No active tab' })
           break
         }
-        sendResponse(await autofillTab(tab.id, { preview: message.preview, profile: message.profile }))
+        sendResponse(await autofillTab(tab, { preview: message.preview, profile: message.profile }))
         break
       }
       case 'UNDO_ACTIVE': {
         const tab = await getActiveTab()
         sendResponse(tab?.id ? await undoTab(tab.id) : { ok: false, error: 'No active tab' })
+        break
+      }
+      case 'GET_SITE_STATE': {
+        const siteProfiles = await getSiteProfiles()
+        sendResponse({ ok: true, blocked: await isSiteBlocked(message.host), siteProfileId: siteProfiles[message.host] || '' })
+        break
+      }
+      case 'SET_SITE_BLOCKED': {
+        await setSiteBlocked(message.host, !!message.blocked)
+        sendResponse({ ok: true })
+        break
+      }
+      case 'SET_SITE_PROFILE': {
+        await setSiteProfile(message.host, message.profileId || '')
+        sendResponse({ ok: true })
         break
       }
       case 'ADD_RULE': {

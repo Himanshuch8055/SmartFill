@@ -11,6 +11,40 @@ function App() {
   const [loadingProfiles, setLoadingProfiles] = React.useState(true)
   const [popupProfileIds, setPopupProfileIds] = React.useState([])
   const [widgetEnabled, setWidgetEnabled] = React.useState(true)
+  // Per-site state for the current tab
+  const [host, setHost] = React.useState('')
+  const [siteBlocked, setSiteBlocked] = React.useState(false)
+  const [siteProfileId, setSiteProfileId] = React.useState('')
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        const h = /^https?:/.test(tab?.url || '') ? new URL(tab.url).host : ''
+        setHost(h)
+        if (!h) return
+        const res = await chrome.runtime.sendMessage({ type: 'GET_SITE_STATE', host: h })
+        if (res?.ok) {
+          setSiteBlocked(!!res.blocked)
+          setSiteProfileId(res.siteProfileId || '')
+        }
+      } catch {}
+    })()
+  }, [])
+
+  const toggleSiteBlocked = async (blocked) => {
+    setSiteBlocked(blocked)
+    await chrome.runtime.sendMessage({ type: 'SET_SITE_BLOCKED', host, blocked })
+    setStatus(blocked ? `SmartFill turned off on ${host}` : `SmartFill turned on for ${host}`)
+  }
+
+  const toggleSiteProfile = async (pin) => {
+    const id = pin ? activeId : ''
+    setSiteProfileId(id)
+    await chrome.runtime.sendMessage({ type: 'SET_SITE_PROFILE', host, profileId: id })
+    const name = profiles.find((p) => p.id === activeId)?.name || 'this profile'
+    setStatus(pin ? `${name} will always be used on ${host}` : `${host} uses the active profile`)
+  }
 
   const autofillNow = async () => {
     setBusy(true)
@@ -177,6 +211,32 @@ function App() {
             Undo
           </button>
         </div>
+
+        {/* This site */}
+        {host && (
+          <div className="pt-2 border-t space-y-2 text-xs">
+            <div className="font-medium text-gray-700 truncate" title={host}>On {host}</div>
+            <label className="flex items-center gap-3">
+              <input type="checkbox" className="h-3.5 w-3.5" checked={siteBlocked} onChange={(e) => toggleSiteBlocked(e.target.checked)} />
+              <span>Turn off SmartFill on this site</span>
+            </label>
+            {!siteBlocked && profiles.length > 1 && (
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5"
+                  checked={!!siteProfileId}
+                  onChange={(e) => toggleSiteProfile(e.target.checked)}
+                />
+                <span className="truncate">
+                  {siteProfileId
+                    ? `Always use "${profiles.find((p) => p.id === siteProfileId)?.name || 'Profile'}" here`
+                    : `Always use "${profiles.find((p) => p.id === activeId)?.name || 'Profile'}" here`}
+                </span>
+              </label>
+            )}
+          </div>
+        )}
 
         {/* Widget toggle */}
         <div className="mt-1 pt-2 border-t">
