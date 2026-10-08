@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
-import { findFillableInputs, fillFields, deriveProfile, toIsoDate, pickOption } from '../src/lib/detectFields.js'
+import { findFillableInputs, fillFields, deriveProfile, toIsoDate, pickOption, snapshot, restore } from '../src/lib/detectFields.js'
 
 function mount(html) {
   document.body.innerHTML = html
@@ -135,5 +135,28 @@ describe('adapters', () => {
     const opts = [{ value: 'US', text: 'United States' }, { value: 'GB', text: 'United Kingdom' }]
     expect(pickOption(opts, 'UK').value).toBe('GB')
     expect(pickOption(opts, 'usa').value).toBe('US')
+  })
+})
+
+describe('undo', () => {
+  it('restores text, select, radio and checkbox values', () => {
+    mount(`
+      <input name="email" value="old@x.com">
+      <select name="country"><option value="US" selected>USA</option><option value="IN">India</option></select>
+      <fieldset><legend>Gender</legend>
+        <label><input type="radio" name="g" value="m" checked>Male</label>
+        <label><input type="radio" name="g" value="f">Female</label>
+      </fieldset>`)
+    const map = findFillableInputs(document)
+    const snap = snapshot(map)
+    fillFields(map, profile)
+    const q = (s) => document.querySelector(s)
+    expect(q('[name=email]').value).toBe('asha@example.com')
+    expect(q('[value=f]').checked).toBe(true)
+    restore(snap)
+    expect(q('[name=email]').value).toBe('old@x.com')
+    expect(q('[name=country]').value).toBe('US')
+    expect(q('[value=m]').checked).toBe(true)
+    expect(q('[value=f]').checked).toBe(false)
   })
 })

@@ -1,5 +1,7 @@
 // Content script
-import { findFillableInputs, fillFields } from '../lib/detectFields'
+import { findFillableInputs, fillFields, deriveProfile, snapshot, restore } from '../lib/detectFields'
+import { PROFILE_FIELDS } from '../lib/profileFields'
+import { showPreview, showToast } from './preview'
 
 console.debug('SmartFill content script loaded')
 
@@ -261,7 +263,7 @@ function ensureWidget() {
     status.textContent = 'Autofilling…'
     try {
       const res = await chrome.runtime.sendMessage({ type: 'AUTOFILL_ACTIVE' })
-      status.textContent = res?.ok ? `Filled ${res?.filled ?? 0} field(s)` : 'Autofill failed'
+      status.textContent = !res?.ok ? 'Autofill failed' : res.preview ? `Review ${res.count} field(s)` : `Filled ${res?.filled ?? 0} field(s)`
     } catch {
       status.textContent = 'Autofill failed'
     } finally {
@@ -369,7 +371,8 @@ function removeWidget() {
   } catch {}
 })()
 
-// Listen for messages to perform autofill
+// ---------- Autofill ----------
+
 function urlMatches(pattern) {
   if (!pattern) return true
   try {
@@ -385,90 +388,210 @@ function urlMatches(pattern) {
   }
 }
 
-function buildFieldMapWithRules(rules = [], profile = {}) {
+const QUESTION_ROOT = '[role="listitem"], .freebirdFormviewerComponentsQuestionBaseRoot, .m2, .o3Dpx'
+const QUESTION_TITLE = '[role="heading"], .freebirdFormviewerComponentsQuestionBaseTitle, .M7eMe, label'
+const ANY_FIELD = '[role="textbox"], [contenteditable]:not([contenteditable="false"]), input, textarea, select'
+
+function questionText(el) {
+  return el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent?.trim() || ''
+}
+
+// Returns { map: { key: el }, fixed: { pseudoKey: value } }
+function buildFieldMapWithRules(rules = []) {
   const map = {}
+  const fixed = {}
   const applicable = rules.filter((r) => urlMatches(r.sitePattern))
-  for (const r of applicable) {
+  applicable.forEach((r, i) => {
     try {
-      // selector-based
-      if (r.selector) {
-        const nodes = document.querySelectorAll(r.selector)
-        nodes.forEach((el) => {
-          const key = r.key
-          if (key && !map[key]) map[key] = el
-        })
-      }
-      // labelRegex-based (match visible nearby question/label text)
-      if (r.labelRegex) {
-        const re = new RegExp(r.labelRegex, 'i')
-        const candidates = document.querySelectorAll('[role="textbox"], [contenteditable]:not([contenteditable="false"]), input, textarea, select')
-        candidates.forEach((el) => {
-          const title = el.closest('[role="listitem"], .freebirdFormviewerComponentsQuestionBaseRoot, .m2, .o3Dpx')?.querySelector('[role="heading"], .freebirdFormviewerComponentsQuestionBaseTitle, .M7eMe, label')?.textContent?.trim() || ''
-          const label = el.getAttribute('aria-label') || el.placeholder || ''
-          if (re.test(title) || re.test(label)) {
-            const key = r.key
-            if (key && !map[key]) map[key] = el
-          }
-        })
-      }
       // fixed value rule (selector + value without key)
       if (r.selector && r.value != null && !r.key) {
         const el = document.querySelector(r.selector)
         if (el) {
-          // fill immediately
-          fillFields({ __fixed: el }, { __fixed: r.value })
+          map[`__fixed_${i}`] = el
+          fixed[`__fixed_${i}`] = r.value
+        }
+        return
+      }
+      if (!r.key || map[r.key]) return
+      // selector-based
+      if (r.selector) {
+        const el = document.querySelector(r.selector)
+        if (el) map[r.key] = el
+      }
+      // labelRegex-based (match visible nearby question/label text)
+      if (r.labelRegex && !map[r.key]) {
+        const re = new RegExp(r.labelRegex, 'i')
+        for (const el of document.querySelectorAll(ANY_FIELD)) {
+          const label = el.getAttribute('aria-label') || el.placeholder || ''
+          if (re.test(questionText(el)) || re.test(label)) {
+            map[r.key] = el
+            break
+          }
         }
       }
     } catch {}
-  }
-  return map
+  })
+  return { map, fixed }
 }
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg?.type === 'AUTOFILL') {
-    const ruleMap = buildFieldMapWithRules(msg.rules || [], msg.profile)
-    const autoMap = findFillableInputs(document)
+// Build the full fill plan: rules -> custom fields -> auto-detected.
+function buildFillPlan(rawProfile = {}, rules = []) {
+  const { map: ruleMap, fixed } = buildFieldMapWithRules(rules)
+  const autoMap = findFillableInputs(document)
 
-    // Build mappings for custom fields (profile.customFields: [{ name, value }])
-    const customMap = {}
-    const customs = Array.isArray(msg?.profile?.customFields) ? msg.profile.customFields : []
-    if (customs.length) {
-      try {
-        const candidates = document.querySelectorAll('[role="textbox"], [contenteditable]:not([contenteditable="false"]), input, textarea, select')
-        customs.forEach((cf) => {
-          const targetName = String(cf?.name || '').trim()
-          if (!targetName || customMap[targetName]) return
-          const re = new RegExp(`(^|\\b)${targetName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}($|\\b)`, 'i')
-          let best = null
-          candidates.forEach((el) => {
-            const title = el.closest('[role="listitem"], .freebirdFormviewerComponentsQuestionBaseRoot, .m2, .o3Dpx')?.querySelector('[role="heading"], .freebirdFormviewerComponentsQuestionBaseTitle, .M7eMe, label')?.textContent?.trim() || ''
-            const label = el.getAttribute('aria-label') || el.placeholder || ''
-            if (re.test(title) || re.test(label)) {
-              if (!best) best = el
-            }
-          })
-          if (best) customMap[targetName] = best
+  // Custom fields: profile.customFields = [{ name, value }], matched by visible label text
+  const customMap = {}
+  const customs = Array.isArray(rawProfile.customFields) ? rawProfile.customFields : []
+  if (customs.length) {
+    try {
+      const candidates = Array.from(document.querySelectorAll(ANY_FIELD))
+      customs.forEach((cf) => {
+        const targetName = String(cf?.name || '').trim()
+        if (!targetName || customMap[targetName]) return
+        const re = new RegExp(`(^|\\b)${targetName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}($|\\b)`, 'i')
+        const best = candidates.find((el) => {
+          const label = el.getAttribute('aria-label') || el.placeholder || ''
+          return re.test(questionText(el)) || re.test(label)
         })
-      } catch {}
-    }
-
-    // Merge maps (priority: rules -> custom -> auto)
-    // Elements claimed by rules/custom fields are removed from auto-detected lists.
-    const claimed = new Set([...Object.values(customMap), ...Object.values(ruleMap)])
-    const merged = {}
-    for (const [key, list] of Object.entries(autoMap)) {
-      const rest = list.filter((t) => !claimed.has(t))
-      if (rest.length) merged[key] = rest
-    }
-    for (const [key, el] of Object.entries({ ...customMap, ...ruleMap })) {
-      merged[key] = [el, ...(merged[key] || [])]
-    }
-
-    // Merge custom field values into profile for fillFields
-    const customVals = Object.fromEntries(customs.filter((c) => c?.name).map((c) => [c.name, c.value]))
-    const profile = { ...msg.profile, ...customVals }
-
-    const { filled } = fillFields(merged, profile)
-    sendResponse({ ok: true, filled })
+        if (best) customMap[targetName] = best
+      })
+    } catch {}
   }
+
+  // Elements claimed by rules/custom fields are removed from auto-detected lists.
+  const claimed = new Set([...Object.values(customMap), ...Object.values(ruleMap)])
+  const map = {}
+  for (const [key, list] of Object.entries(autoMap)) {
+    const rest = list.filter((t) => !claimed.has(t))
+    if (rest.length) map[key] = rest
+  }
+  for (const [key, el] of Object.entries({ ...customMap, ...ruleMap })) {
+    map[key] = [el, ...(map[key] || [])]
+  }
+
+  const customVals = Object.fromEntries(customs.filter((c) => c?.name).map((c) => [c.name, c.value]))
+  const profile = deriveProfile({ ...rawProfile, ...customVals, ...fixed })
+
+  // Drop keys with no value so preview/count reflect what will actually change.
+  for (const key of Object.keys(map)) {
+    const v = profile[key]
+    if (v == null || String(v).trim() === '') delete map[key]
+  }
+  return { map, profile }
+}
+
+const FIELD_LABELS = Object.fromEntries(PROFILE_FIELDS.map((f) => [f.name, f.label]))
+
+function previewEntries(map, profile) {
+  const entries = []
+  for (const [key, targets] of Object.entries(map)) {
+    for (const t of targets) {
+      entries.push({
+        el: Array.isArray(t) ? t[0] : t,
+        label: key.startsWith('__fixed_') ? 'Rule' : FIELD_LABELS[key] || key,
+        value: profile[key],
+      })
+    }
+  }
+  return entries
+}
+
+function countTargets(map) {
+  return Object.values(map).reduce((n, list) => n + list.length, 0)
+}
+
+const isTop = window === window.top
+let lastSnapshot = null
+
+function runFill(map, profile) {
+  const snap = snapshot(map)
+  const { filled } = fillFields(map, profile)
+  if (filled) {
+    lastSnapshot = snap
+    showToast(`Filled ${filled} field${filled === 1 ? '' : 's'}`, { actionLabel: 'Undo', onAction: undoFill, timeout: 10000 })
+    chrome.runtime.sendMessage({ type: 'FILL_DONE', filled }).catch(() => {})
+  } else if (isTop) {
+    showToast('No fillable fields found on this page')
+  }
+  return filled
+}
+
+function undoFill() {
+  if (!lastSnapshot) return 0
+  const n = restore(lastSnapshot)
+  lastSnapshot = null
+  showToast(`Restored ${n} field${n === 1 ? '' : 's'}`)
+  return n
+}
+
+// Remember the field the user right-clicked for "Fill this field with…"
+let lastContextTarget = null
+document.addEventListener('contextmenu', (e) => {
+  lastContextTarget = e.composedPath?.()[0] || e.target
+}, true)
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  switch (msg?.type) {
+    case 'AUTOFILL': {
+      const { map, profile } = buildFillPlan(msg.profile || {}, msg.rules || [])
+      const count = countTargets(map)
+      // Sub-frames without fields stay silent so the frame that has fields answers.
+      if (!isTop && !count) return false
+      if (msg.preview && count) {
+        showPreview(previewEntries(map, profile), {
+          onConfirm: () => runFill(map, profile),
+        })
+        sendResponse({ ok: true, preview: true, count })
+      } else {
+        sendResponse({ ok: true, filled: runFill(map, profile) })
+      }
+      return false
+    }
+    case 'UNDO_FILL': {
+      if (!lastSnapshot && !isTop) return false
+      sendResponse({ ok: true, restored: undoFill() })
+      return false
+    }
+    case 'FILL_FIELD': {
+      const el = lastContextTarget
+      if (!el?.isConnected) {
+        sendResponse({ ok: false, error: 'No field selected' })
+        return false
+      }
+      const profile = deriveProfile(msg.profile || {})
+      const map = { [msg.key]: [el] }
+      const snap = snapshot(map)
+      const { filled } = fillFields(map, profile)
+      if (filled) lastSnapshot = snap
+      else showToast(`Your profile has no value for "${FIELD_LABELS[msg.key] || msg.key}"`)
+      sendResponse({ ok: true, filled })
+      return false
+    }
+    case 'TOAST': {
+      if (isTop) showToast(msg.text)
+      return false
+    }
+  }
+  return false
 })
+
+// ---------- Toolbar badge: report how many fillable fields the page has ----------
+
+function reportFieldCount() {
+  try {
+    const count = countTargets(findFillableInputs(document))
+    chrome.runtime.sendMessage({ type: 'FIELD_COUNT', count }).catch(() => {})
+  } catch {}
+}
+
+if (isTop) {
+  let timer = 0
+  const schedule = () => {
+    clearTimeout(timer)
+    timer = setTimeout(reportFieldCount, 800)
+  }
+  schedule()
+  try {
+    new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true })
+  } catch {}
+}

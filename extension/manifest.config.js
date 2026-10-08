@@ -42,7 +42,21 @@ export default {
   background: {
     service_worker: "src/background.js"
   },
-  permissions: ["storage", "activeTab", "scripting", "tabs"],
+  permissions: ["storage", "activeTab", "scripting", "tabs", "contextMenus"],
+  commands: {
+    "fill-form": {
+      suggested_key: { default: "Alt+Shift+F" },
+      description: "Fill the form on this page"
+    },
+    "undo-fill": {
+      suggested_key: { default: "Alt+Shift+Z" },
+      description: "Undo the last fill"
+    },
+    "next-profile": {
+      suggested_key: { default: "Alt+Shift+P" },
+      description: "Switch to the next profile"
+    }
+  },
   host_permissions: [
     "http://localhost/*",
     "https://localhost/*",

@@ -151,10 +151,6 @@ export function findFillableInputs(root = document) {
     const hit = scoreElement(el)
     if (hit) (map[hit.key] ||= []).push(el)
   }
-  try {
-    const keys = Object.keys(map)
-    if (keys.length) console.debug('[SmartFill] Detected fields:', keys)
-  } catch {}
   return map
 }
 
@@ -343,4 +339,49 @@ export function fillFields(fieldMap, profile) {
   }
   try { console.debug('[SmartFill] Total filled:', count) } catch {}
   return { filled: count }
+}
+
+// ---------- undo ----------
+
+function flatTargets(fieldMap) {
+  const out = []
+  for (const targets of Object.values(fieldMap)) {
+    for (const t of Array.isArray(targets) ? targets : [targets]) {
+      if (Array.isArray(t)) out.push(...t) // radio group
+      else if (t) out.push(t)
+    }
+  }
+  return out
+}
+
+// Record current values so a fill can be reverted.
+export function snapshot(fieldMap) {
+  return flatTargets(fieldMap).map((el) => ({
+    el,
+    value: el.value,
+    checked: el.checked,
+    html: el.isContentEditable ? el.innerHTML : undefined,
+  }))
+}
+
+export function restore(snap = []) {
+  let count = 0
+  for (const { el, value, checked, html } of snap) {
+    if (!el?.isConnected) continue
+    if (html !== undefined) {
+      el.innerHTML = html
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+    } else if (el.type === 'checkbox' || el.type === 'radio') {
+      if (el.checked === checked) continue
+      el.checked = checked
+      dispatchAll(el)
+    } else {
+      if (el.value === value) continue
+      if (el.tagName === 'SELECT') el.value = value
+      else setNativeValue(el, value)
+      dispatchAll(el)
+    }
+    count++
+  }
+  return count
 }

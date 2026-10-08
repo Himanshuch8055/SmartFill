@@ -17,12 +17,26 @@ function App() {
     setStatus('Autofilling...')
     try {
       const res = await chrome.runtime.sendMessage({ type: 'AUTOFILL_ACTIVE' })
-      if (res?.ok) setStatus(`Filled ${res?.filled ?? 0} field(s)`) 
+      if (res?.ok && res.preview) {
+        // Preview is shown on the page; close so the page gets focus (Enter / Esc work there)
+        setStatus(`Review ${res.count} field(s) on the page`)
+        setTimeout(() => window.close(), 400)
+      } else if (res?.ok) setStatus(`Filled ${res?.filled ?? 0} field(s)`)
       else setStatus(`Error: ${res?.error || 'unknown'}`)
     } catch (e) {
       setStatus(`Error: ${e?.message}`)
     } finally {
       setBusy(false)
+    }
+  }
+
+  const undoNow = async () => {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'UNDO_ACTIVE' })
+      if (res?.ok) setStatus(res.restored ? `Restored ${res.restored} field(s)` : 'Nothing to undo')
+      else setStatus(`Error: ${res?.error || 'unknown'}`)
+    } catch (e) {
+      setStatus(`Error: ${e?.message}`)
     }
   }
 
@@ -151,13 +165,16 @@ function App() {
       {/* Body */}
       <div className="p-4 space-y-3">
 
-        <div className="grid grid-cols-1 gap-2">
+        <div className="grid grid-cols-[1fr,auto] gap-2">
           <button onClick={autofillNow} disabled={busy} className={`btn px-4 py-2 rounded-md text-white text-sm inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${busy ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`} aria-label="Autofill now">
             {/* <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
               <path d="M6 12h12"/>
               <path d="M12 6v12"/>
             </svg> */}
             {busy ? 'Autofilling…' : 'Autofill Now'}
+          </button>
+          <button onClick={undoNow} className="px-3 py-2 rounded-md border border-gray-300 text-gray-700 text-sm hover:bg-gray-50" aria-label="Undo last fill" title="Undo last fill (Alt+Shift+Z)">
+            Undo
           </button>
         </div>
 
@@ -181,7 +198,7 @@ function App() {
         </div>
 
         <div className="text-[11px] text-gray-500 pt-1">
-          Tip: Keep the form page focused for best results.
+          Shortcuts: <b>Alt+Shift+F</b> fill · <b>Alt+Shift+Z</b> undo · <b>Alt+Shift+P</b> next profile. Right-click any field to fill it.
         </div>
         
         {status && (

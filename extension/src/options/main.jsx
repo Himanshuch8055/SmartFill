@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import '../styles.css'
+import { PROFILE_SECTIONS } from '../lib/profileFields'
 
 function Field({ label, name, placeholder, value, onChange, type = 'text', options, full }) {
   const [val, setVal] = React.useState(value ?? '')
@@ -39,61 +40,6 @@ function Field({ label, name, placeholder, value, onChange, type = 'text', optio
   )
 }
 
-const PROFILE_SECTIONS = [
-  {
-    title: 'Personal',
-    fields: [
-      { name: 'fullName', label: 'Full Name', placeholder: 'John Doe' },
-      { name: 'firstName', label: 'First Name', placeholder: 'Auto from full name if empty' },
-      { name: 'middleName', label: 'Middle Name', placeholder: 'Michael' },
-      { name: 'lastName', label: 'Last Name', placeholder: 'Auto from full name if empty' },
-      { name: 'username', label: 'Username', placeholder: 'johndoe' },
-      { name: 'dob', label: 'Date of Birth', type: 'date' },
-      { name: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Non-binary', 'Prefer not to say'] },
-    ],
-  },
-  {
-    title: 'Contact',
-    fields: [
-      { name: 'email', label: 'Email', placeholder: 'john@example.com' },
-      { name: 'phone', label: 'Phone', placeholder: '+1 555-1234' },
-      { name: 'phone2', label: 'Alternate Phone', placeholder: '+1 555-5678' },
-    ],
-  },
-  {
-    title: 'Work',
-    fields: [
-      { name: 'company', label: 'Company', placeholder: 'Acme Inc.' },
-      { name: 'jobTitle', label: 'Job Title', placeholder: 'Software Engineer' },
-      { name: 'website', label: 'Website', placeholder: 'https://example.com' },
-      { name: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/john' },
-      { name: 'github', label: 'GitHub', placeholder: 'https://github.com/john' },
-      { name: 'portfolio', label: 'Portfolio', placeholder: 'https://john.dev' },
-    ],
-  },
-  {
-    title: 'Professional',
-    fields: [
-      { name: 'yearsExperience', label: 'Years of Experience', placeholder: '5' },
-      { name: 'noticePeriod', label: 'Notice Period', placeholder: '30 days' },
-      { name: 'currentCtc', label: 'Current Salary / CTC', placeholder: '12 LPA' },
-      { name: 'expectedCtc', label: 'Expected Salary / CTC', placeholder: '18 LPA' },
-      { name: 'bio', label: 'Short Bio / About Me', type: 'textarea', placeholder: 'Used for "About yourself" style fields', full: true },
-    ],
-  },
-  {
-    title: 'Address',
-    fields: [
-      { name: 'address1', label: 'Address Line 1', placeholder: '123 Main St' },
-      { name: 'address2', label: 'Address Line 2', placeholder: 'Apt 4B' },
-      { name: 'city', label: 'City', placeholder: 'San Francisco' },
-      { name: 'state', label: 'State/Province', placeholder: 'CA' },
-      { name: 'zip', label: 'ZIP/Postal', placeholder: '94105' },
-      { name: 'country', label: 'Country', placeholder: 'USA' },
-    ],
-  },
-]
-
 function Options() {
   // active profile data
   const [profile, setProfile] = React.useState({})
@@ -111,6 +57,7 @@ function Options() {
   const [popupProfileIds, setPopupProfileIds] = React.useState([])
   // widget enable/disable
   const [widgetEnabled, setWidgetEnabled] = React.useState(true)
+  const [fillMode, setFillMode] = React.useState('preview') // preview | instant
   // filter profiles in sidebar
   const [profileQuery, setProfileQuery] = React.useState('')
   // filter in popup profiles chooser
@@ -141,7 +88,8 @@ function Options() {
         // load popup visibility selection
         const { popupProfileIds: savedIds } = await chrome.storage.local.get(['popupProfileIds'])
         if (Array.isArray(savedIds)) setPopupProfileIds(savedIds)
-        const { widgetEnabled: w } = await chrome.storage.local.get(['widgetEnabled'])
+        const { widgetEnabled: w, fillMode: fm } = await chrome.storage.local.get(['widgetEnabled', 'fillMode'])
+        setFillMode(fm === 'instant' ? 'instant' : 'preview')
         setWidgetEnabled(w !== false)
       }
     } catch (e) {
@@ -780,6 +728,28 @@ function Options() {
                     <div className="text-[12px] text-gray-500 mt-0.5">Toggles the on-page button to quickly autofill forms. Changes take effect immediately on open pages.</div>
                   </div>
                 </label>
+                <label className="mt-4 flex items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4"
+                    checked={fillMode === 'preview'}
+                    onChange={async (e) => {
+                      const val = e.target.checked ? 'preview' : 'instant'
+                      setFillMode(val)
+                      await chrome.storage.local.set({ fillMode: val })
+                      setToast({ show: true, text: val === 'preview' ? 'Preview before filling' : 'Fill instantly', kind: 'info' })
+                      setTimeout(() => setToast((t) => ({ ...t, show: false })), 1200)
+                    }}
+                  />
+                  <div>
+                    <div className="font-medium">Preview before filling</div>
+                    <div className="text-[12px] text-gray-500 mt-0.5">Highlights the fields SmartFill will fill and asks you to confirm. Turn off to fill instantly. Every fill can be undone.</div>
+                  </div>
+                </label>
+                <div className="mt-4 text-[12px] text-gray-600">
+                  Keyboard shortcuts: <b>Alt+Shift+F</b> fill · <b>Alt+Shift+Z</b> undo · <b>Alt+Shift+P</b> next profile.
+                  Change them at <span className="font-mono">chrome://extensions/shortcuts</span>.
+                </div>
               </div>
 
               {/* Data management third (no drag & drop) */}
