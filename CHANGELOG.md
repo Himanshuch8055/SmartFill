@@ -7,6 +7,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 - Redesigned popup: shows the current site and how many fields were detected, a single **Fill N fields** button, and simple switches for preview and turning SmartFill on or off for the site. Clear messages for protected pages and first-run setup; fill results and Undo appear in place.
+- Redesigned settings page: profiles in a sidebar, edit any profile without making it active, changes save automatically, and separate Sites, Settings, Backup and About pages.
+- Restoring a backup now shows what the file contains before replacing your data.
+- New theme setting: System, Light or Dark.
 - New indigo look with light and dark themes.
 
 ## [1.0.0] - 2026-10-09
