@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Pixel-aligned version of icon.svg for the 16px toolbar size (lines on whole pixels so they stay sharp). -->
+  <rect width="16" height="16" rx="3.5" fill="#4f46e5" shape-rendering="geometricPrecision"/>
+  <rect x="4" y="4" width="8" height="2" fill="#ffffff"/>
+  <rect x="4" y="7" width="5" height="2" fill="#ffffff"/>
+  <rect x="4" y="10" width="6" height="2" fill="#ffffff"/>
+  <rect x="10" y="9" width="3" height="4" fill="#ffffff"/>
+  <rect x="9" y="10" width="5" height="2" fill="#ffffff"/>
+</svg>

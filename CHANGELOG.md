@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Redesigned on-page button: a small button docked to the edge of pages with form fields (only in the main page, not inside embedded frames). It stays tucked behind the edge and slides out as your cursor gets closer. One click fills the page; hover shows how many fields it will fill, with an option to hide it. Drag it up or down along the edge.
 - Fill preview: labels sit inside the fields so the page's own labels stay visible. Click a label to skip that field.
 - The "remember this field" question now appears next to the field. Messages appear at the bottom centre.
+- New logo and toolbar icon (indigo mark with form lines), with a pixel-aligned version for the 16px toolbar size.
 - New indigo look with light and dark themes.
 
 ## [1.0.0] - 2026-10-09

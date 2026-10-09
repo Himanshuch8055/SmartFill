@@ -29,7 +29,9 @@ async function main() {
   await Promise.all(
     sizes.map(async (size) => {
       const out = path.join(iconsDir, `icon${size}.png`)
-      await sharp(srcSvg)
+      // A size-specific source (e.g. icons/icon16.svg, drawn on the pixel grid) wins over icon.svg.
+      const sized = path.join(iconsDir, `icon${size}.svg`)
+      await sharp(fs.existsSync(sized) ? sized : srcSvg, { density: 384 })
         .resize(size, size)
         .png({ quality: 90 })
         .toFile(out)
