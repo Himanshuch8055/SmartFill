@@ -3,12 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SmartFill – Autofill forms in one click</title>
+    <title>SmartFill: fill any form in one click</title>
+    <meta name="description" content="SmartFill is a free, open-source browser extension that fills sign-up, checkout and job-application forms from details you save once. Private: your data never leaves your browser." />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <meta name="description" content="SmartFill is a lightweight browser extension that autofills forms in one click using your saved profiles. Fast, private, and easy." />
+    <meta name="theme-color" content="#4f46e5" />
+
+    <!-- Social previews -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SmartFill" />
+    <meta property="og:title" content="SmartFill: fill any form in one click" />
+    <meta property="og:description" content="Free, open-source browser extension that fills forms from details you save once. Private by design." />
+    <meta property="og:image" content="/images/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Apply a saved theme before first paint to avoid a flash -->
+    <script>
+      try {
+        // ?theme=light|dark previews a theme without saving it
+        var t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('smartfill-theme')
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
- </html>
+</html>

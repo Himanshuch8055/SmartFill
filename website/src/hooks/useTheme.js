@@ -1,26 +1,39 @@
 import { useEffect, useState, useCallback } from 'react'
 
-const STORAGE_KEY = 'theme'
+// Theme preference: 'system' (default, follows the OS), 'light' or 'dark'.
+// ?theme=light|dark in the URL previews a theme without saving it.
+const STORAGE_KEY = 'smartfill-theme'
+const valid = (v) => v === 'light' || v === 'dark'
 
-function getInitialTheme() {
-  if (typeof window === 'undefined') return 'light'
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved === 'light' || saved === 'dark') return saved
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-  return prefersDark ? 'dark' : 'light'
+function readPref() {
+  try {
+    const fromUrl = new URLSearchParams(location.search).get('theme')
+    if (valid(fromUrl)) return fromUrl
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (valid(saved)) return saved
+  } catch {}
+  return 'system'
 }
 
+const systemIsDark = () => window.matchMedia?.('(prefers-color-scheme: dark)').matches
+
 export default function useTheme() {
-  const [theme, setTheme] = useState(getInitialTheme)
+  const [pref, setPref] = useState(readPref)
 
   useEffect(() => {
     const root = document.documentElement
-    if (theme === 'dark') root.classList.add('dark')
-    else root.classList.remove('dark')
-    localStorage.setItem(STORAGE_KEY, theme)
-  }, [theme])
+    if (pref === 'system') root.removeAttribute('data-theme')
+    else root.dataset.theme = pref
+  }, [pref])
 
-  const toggle = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [])
+  const isDark = pref === 'dark' || (pref === 'system' && systemIsDark())
 
-  return { theme, setTheme, toggle }
+  // Toggling switches to the opposite of what's shown, and remembers the choice.
+  const toggle = useCallback(() => {
+    const next = isDark ? 'light' : 'dark'
+    setPref(next)
+    try { localStorage.setItem(STORAGE_KEY, next) } catch {}
+  }, [isDark])
+
+  return { isDark, toggle }
 }
