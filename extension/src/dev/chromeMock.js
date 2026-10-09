@@ -138,6 +138,7 @@ globalThis.chrome = {
   runtime: {
     id: 'dev-preview',
     getURL: (p) => '/' + String(p).replace(/^\//, ''),
+    getManifest: () => ({ version: '1.0.0', name: 'SmartFill' }),
     openOptionsPage: () => window.open('/options.html', '_blank'),
     onMessage,
     onInstalled: event(),
@@ -164,7 +165,14 @@ globalThis.chrome = {
   },
   action: { setBadgeText: noop, setBadgeBackgroundColor: noop },
   contextMenus: { create: () => {}, removeAll: (cb) => cb?.(), onClicked: event() },
-  commands: { onCommand: event() },
+  commands: {
+    onCommand: event(),
+    getAll: async () => [
+      { name: 'fill-form', description: 'Fill the form on this page', shortcut: 'Alt+Shift+F' },
+      { name: 'undo-fill', description: 'Undo the last fill', shortcut: 'Alt+Shift+Z' },
+      { name: 'next-profile', description: 'Switch to the next profile', shortcut: 'Alt+Shift+P' },
+    ],
+  },
 }
 
 // The popup closes itself after starting a preview; keep the dev tab open instead.
