@@ -123,7 +123,6 @@ function Popup() {
   const [notice, notify] = useNotice()
   const [busy, setBusy] = React.useState(false)
 
-  const active = state.profiles?.find((p) => p.id === state.activeId)
   const fillProfile = state.profiles?.find((p) => p.id === (state.siteProfileId || state.activeId))
   const needsSetup = !state.loading && !state.error && !hasProfileData(fillProfile)
   const canFill = !state.loading && !state.error && !state.restricted && !state.blocked && !needsSetup
@@ -188,12 +187,6 @@ function Popup() {
   const setEnabledHere = async (enabled) => {
     setState((s) => ({ ...s, blocked: !enabled }))
     await send({ type: 'SET_SITE_BLOCKED', host: state.host, blocked: !enabled })
-    reload()
-  }
-
-  const setPinned = async (pin) => {
-    setState((s) => ({ ...s, siteProfileId: pin ? s.activeId : '' }))
-    await send({ type: 'SET_SITE_PROFILE', host: state.host, profileId: pin ? state.activeId : '' })
     reload()
   }
 
@@ -286,14 +279,6 @@ function Popup() {
               <Row>
                 <label htmlFor="sf-site" className="cursor-pointer truncate">Enabled on this site</label>
                 <Switch id="sf-site" size="sm" checked={!state.blocked} onChange={setEnabledHere} />
-              </Row>
-            )}
-            {state.host && !state.blocked && state.profiles.length > 1 && (
-              <Row>
-                <label htmlFor="sf-pin" className="cursor-pointer truncate">
-                  Always use {(pinnedProfile || active)?.name} here
-                </label>
-                <Switch id="sf-pin" size="sm" checked={!!state.siteProfileId} onChange={setPinned} />
               </Row>
             )}
           </div>
