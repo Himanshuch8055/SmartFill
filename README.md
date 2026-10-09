@@ -16,6 +16,8 @@ A free, open-source browser extension for Chrome and Firefox that fills sign-up,
 
 </div>
 
+<p align="center"><img src="extension/store/screenshots/1-fill-preview.png" alt="SmartFill previewing the fields it will fill on a job application form" width="880"></p>
+
 ---
 
 ## Features

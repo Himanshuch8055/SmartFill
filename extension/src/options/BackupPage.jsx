@@ -65,7 +65,7 @@ export default function BackupPage({ data, toast }) {
         </SettingRow>
         <SettingRow label="Restore from file" description="Replaces your current profiles and settings with the ones in the file.">
           <Button size="sm" onClick={() => fileRef.current?.click()}>Choose file…</Button>
-          <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={pickFile} />
+          <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" aria-label="Backup file to restore" onChange={pickFile} />
         </SettingRow>
       </Group>
       {error && <p className="-mt-6 mb-8 text-[12px] text-danger">{error}</p>}

@@ -217,6 +217,7 @@ function Popup() {
         <IconButton icon={Settings} label="Settings" size="sm" className="-mr-2" onClick={() => chrome.runtime.openOptionsPage()} />
       </header>
 
+      <main>
       {state.loading ? (
         <div className="px-4 py-5 space-y-3" aria-busy="true" aria-label="Loading">
           <div className="h-4 w-40 rounded bg-surface-2" />
@@ -292,6 +293,7 @@ function Popup() {
           <LinkButton onClick={() => rated(false)}>Not now</LinkButton>
         </div>
       )}
+      </main>
 
       {!state.loading && !state.error && !needsSetup && (
         <footer className="border-t border-line px-4 h-10 flex items-center justify-between">

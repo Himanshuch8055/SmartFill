@@ -31,7 +31,7 @@ Load `extension/dist` as an unpacked extension (`chrome://extensions` → Develo
 npm run dev:ui   # http://localhost:5180/dev/index.html
 ```
 
-This opens the popup, options and welcome pages side by side in a normal browser tab, with `chrome.*` mocked by sample data (`src/dev/chromeMock.js`). It has theme (system, light, dark) and scenario controls (active tab URL, number of fields). `/dev/gallery.html` shows every UI kit component, and `/dev/form.html` is a sample job application with the real content script running (on-page button, preview, prompts). Build UI from `src/ui/` (tokens and components) instead of raw colors: use `bg-surface`, `text-fg-muted`, `border-line` and `bg-accent`, never `gray-*` or `blue-*`.
+This opens the popup, options and welcome pages side by side in a normal browser tab, with `chrome.*` mocked by sample data (`src/dev/chromeMock.js`). It has theme (system, light, dark) and scenario controls (active tab URL, number of fields). `/dev/gallery.html` shows every UI kit component, and `/dev/form.html` is a sample job application with the real content script running (on-page button, preview, prompts). `npm run store:screenshots` (with `dev:ui` running) regenerates the store screenshots from `/dev/store.html`. Build UI from `src/ui/` (tokens and components) instead of raw colors: use `bg-surface`, `text-fg-muted`, `border-line` and `bg-accent`, never `gray-*` or `blue-*`.
 
 Project structure (extension):
 
