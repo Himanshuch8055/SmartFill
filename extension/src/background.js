@@ -129,7 +129,39 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
 
 function setBadge(tabId, count) {
   chrome.action.setBadgeText({ tabId, text: count > 0 ? String(count) : '' }).catch(() => {})
-  chrome.action.setBadgeBackgroundColor({ tabId, color: '#2563eb' }).catch(() => {})
+  chrome.action.setBadgeBackgroundColor({ tabId, color: '#4f46e5' }).catch(() => {})
+}
+
+// ---------- Per-tab field counts (for the popup) ----------
+// Kept in storage.session so they survive the service worker being suspended.
+
+const tabCounts = new Map()
+const sessionStore = chrome.storage.session
+
+async function setTabCount(tabId, count) {
+  tabCounts.set(tabId, count)
+  try { await sessionStore?.set({ [`count:${tabId}`]: count }) } catch {}
+}
+
+async function getTabCount(tabId) {
+  if (tabCounts.has(tabId)) return tabCounts.get(tabId)
+  try {
+    const key = `count:${tabId}`
+    const data = await sessionStore?.get(key)
+    if (data && key in data) return data[key]
+  } catch {}
+  return null // unknown: the content script hasn't reported (e.g. page opened before install)
+}
+
+chrome.tabs.onRemoved?.addListener((tabId) => {
+  tabCounts.delete(tabId)
+  sessionStore?.remove(`count:${tabId}`).catch?.(() => {})
+})
+
+// Pages where browsers never run extension content scripts.
+function isRestrictedUrl(url = '') {
+  if (!/^https?:/i.test(url)) return true
+  return /^https:\/\/(chrome\.google\.com\/webstore|chromewebstore\.google\.com|addons\.mozilla\.org|microsoftedge\.microsoft\.com\/addons)/i.test(url)
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -227,6 +259,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse(tab?.id ? await undoTab(tab.id) : { ok: false, error: 'No active tab' })
         break
       }
+      // Everything the popup needs about the current tab in one call.
+      case 'GET_TAB_STATE': {
+        const tab = await getActiveTab()
+        const url = tab?.url || ''
+        const restricted = isRestrictedUrl(url)
+        const host = restricted ? '' : hostOf(url)
+        const siteProfiles = await getSiteProfiles()
+        sendResponse({
+          ok: true,
+          host,
+          restricted,
+          fieldCount: tab?.id != null && !restricted ? await getTabCount(tab.id) : null,
+          blocked: host ? await isSiteBlocked(host) : false,
+          siteProfileId: (host && siteProfiles[host]) || '',
+        })
+        break
+      }
       case 'GET_SITE_STATE': {
         const siteProfiles = await getSiteProfiles()
         sendResponse({ ok: true, blocked: await isSiteBlocked(message.host), siteProfileId: siteProfiles[message.host] || '' })
@@ -248,7 +297,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break
       }
       case 'FIELD_COUNT': {
-        if (sender.tab?.id) setBadge(sender.tab.id, message.count)
+        if (sender.tab?.id) {
+          setBadge(sender.tab.id, message.count)
+          await setTabCount(sender.tab.id, message.count)
+        }
         sendResponse({ ok: true })
         break
       }

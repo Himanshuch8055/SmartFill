@@ -4,7 +4,7 @@
 //
 // URL parameters (on the preview page or a page directly):
 //   ?site=https://shop.example.com/checkout  URL of the "active tab"
-//   ?fields=12                               fillable fields the content script reports
+//   ?fields=12                               fillable fields the content script reports ('unknown' = never reported)
 //   ?fill=instant                            AUTOFILL responds as an instant fill instead of preview
 //   ?reset=1                                 restore the sample data
 
@@ -99,7 +99,8 @@ const local = {
 }
 
 const site = params.get('site') || 'https://www.example.com/signup'
-const fieldCount = Number(params.get('fields') ?? 12)
+const fieldsParam = params.get('fields') ?? '12'
+const fieldCount = fieldsParam === 'unknown' ? 0 : Number(fieldsParam) || 0
 const activeTab = { id: 1, url: site, active: true, title: 'Example' }
 
 // Fake content-script answers for messages the background forwards to the tab.
@@ -115,12 +116,25 @@ function contentResponse(msg) {
   }
 }
 
+// Non-persistent area (chrome.storage.session)
+function memoryArea() {
+  const mem = {}
+  return {
+    async get(keys) {
+      if (keys == null) return { ...mem }
+      return Object.fromEntries([].concat(keys).filter((k) => k in mem).map((k) => [k, mem[k]]))
+    },
+    async set(obj) { Object.assign(mem, obj) },
+    async remove(keys) { for (const k of [].concat(keys)) delete mem[k] },
+  }
+}
+
 let markReady
 const ready = new Promise((r) => (markReady = r))
 const noop = () => Promise.resolve()
 
 globalThis.chrome = {
-  storage: { local, onChanged },
+  storage: { local, session: memoryArea(), onChanged },
   runtime: {
     id: 'dev-preview',
     getURL: (p) => '/' + String(p).replace(/^\//, ''),
@@ -146,6 +160,7 @@ globalThis.chrome = {
       return contentResponse(msg)
     },
     create: ({ url }) => window.open(url, '_blank'),
+    onRemoved: event(),
   },
   action: { setBadgeText: noop, setBadgeBackgroundColor: noop },
   contextMenus: { create: () => {}, removeAll: (cb) => cb?.(), onClicked: event() },
@@ -159,7 +174,7 @@ window.close = () => console.info('[SmartFill dev] window.close() ignored')
 import('../background.js')
   .then(() => {
     // Report the field count the way the content script would.
-    chrome.runtime.sendMessage({ type: 'FIELD_COUNT', count: fieldCount }).catch(() => {})
+    if (fieldsParam !== 'unknown') chrome.runtime.sendMessage({ type: 'FIELD_COUNT', count: fieldCount }).catch(() => {})
   })
   .finally(markReady)
 
