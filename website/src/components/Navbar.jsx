@@ -9,7 +9,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 border-b border-slate-200/70 dark:border-white/10 backdrop-blur supports-backdrop-blur:bg-white/60 dark:supports-backdrop-blur:bg-[#0b1220]/60">
       <div className="container-app h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <img src="/logo.svg" alt="SmartFill logo" className="h-7 w-7 rounded" />
+          <img src="/logo.svg" alt="SmartFill logo" className="h-7 w-7" />
           <span className="font-bold tracking-tight">SmartFill</span>
         </Link>
 
