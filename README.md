@@ -12,6 +12,8 @@ A free, open-source browser extension for Chrome and Firefox that fills sign-up,
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
+**[getsmartfill.vercel.app](https://getsmartfill.vercel.app)** · [Try the live demo](https://getsmartfill.vercel.app/#demo)
+
 [Features](#features) · [Install](#install) · [Development](#development) · [Contributing](CONTRIBUTING.md) · [Privacy](#privacy)
 
 </div>
@@ -89,11 +91,15 @@ Adding support for a site that fills incorrectly usually means adding a fixture:
 
 ## Privacy
 
-SmartFill stores everything in your browser's local extension storage. It has no backend, no analytics and no remote code. Read the full [privacy policy](website/src/pages/Privacy.jsx).
+SmartFill stores everything in your browser's local extension storage. It has no backend, no analytics and no remote code. Read the full [privacy policy](https://getsmartfill.vercel.app/privacy).
 
 ## Contributing
 
 Bug reports, site-compatibility reports and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md). To report a security issue, see [SECURITY.md](SECURITY.md) (please don't open a public issue for it).
+
+## Support
+
+SmartFill is free and has no ads. If it saves you time, you can [sponsor its development on GitHub](https://github.com/sponsors/Himanshuch8055).
 
 ## License
 

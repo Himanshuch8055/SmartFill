@@ -11,7 +11,7 @@ export const CONTACT_EMAIL = 'himanshuch8055@gmail.com'
 
 // Support links. Fill in the usernames you create; anything left null is hidden on the site.
 export const SUPPORT = {
-  githubSponsors: null, // GitHub username, e.g. 'Himanshuch8055' -> github.com/sponsors/Himanshuch8055
+  githubSponsors: 'Himanshuch8055', // GitHub username, e.g. 'Himanshuch8055' -> github.com/sponsors/Himanshuch8055
   buyMeACoffee: null, // e.g. 'himanshu' -> buymeacoffee.com/himanshu
   kofi: null, // e.g. 'himanshu' -> ko-fi.com/himanshu
 }

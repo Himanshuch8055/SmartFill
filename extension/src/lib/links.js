@@ -1,6 +1,6 @@
 // External links used by the extension UI.
-// TODO before store submission: set SITE_URL to the deployed website (privacy policy lives at /privacy).
-export const SITE_URL = 'https://smartfill.example.com'
+// The website (deployed on Vercel from website/). The privacy policy lives at /privacy.
+export const SITE_URL = 'https://getsmartfill.vercel.app'
 export const PRIVACY_URL = `${SITE_URL}/privacy`
 
 const isFirefox = typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent)

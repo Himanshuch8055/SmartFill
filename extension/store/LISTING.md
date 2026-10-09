@@ -62,8 +62,9 @@ Keyboard shortcuts: Alt+Shift+F fill · Alt+Shift+Z undo · Alt+Shift+P switch p
 - Build instructions for reviewers: Node 18+, `npm ci`, then `npm run build:firefox`. Output is in `dist-firefox/`.
 
 ## Before submitting
-- [ ] Set `SITE_URL` in `src/lib/links.js` to the deployed website; privacy policy URL = `SITE_URL/privacy`.
-- [ ] Put the same privacy-policy URL in both store dashboards.
+- [x] Website live at https://getsmartfill.vercel.app (`SITE_URL` in `src/lib/links.js`).
+- [ ] Privacy policy URL for both store dashboards: **https://getsmartfill.vercel.app/privacy**
+- [ ] Homepage / support URL for the listings: **https://getsmartfill.vercel.app**
 - [x] Screenshots (1280×800) and promo tile (440×280) are in `store/screenshots/`. To regenerate them after UI changes, run `npm run dev:ui` and then `npm run store:screenshots`.
   1. `1-fill-preview.png`: Fill any form in one click (preview on a job application)
   2. `2-popup.png`: Your details, one click away (popup)
