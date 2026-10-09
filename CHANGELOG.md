@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+- Redesigned popup: shows the current site and how many fields are ready to fill, one clear **Fill form** button, a preview switch, and quick actions (Undo, turn off on this site, pin a profile to this site). Includes a profile switcher, clear messages for protected pages, turned-off sites and first-run setup, and toasts with Undo.
+- New indigo look with light and dark themes.
+
 ## [1.0.0] - 2026-10-09
 
 First public release.

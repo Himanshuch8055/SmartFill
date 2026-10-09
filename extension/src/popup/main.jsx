@@ -1,307 +1,365 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import './popup.css'
 import '../styles.css'
+import {
+  Wand2, Undo2, Settings, ChevronDown, Check, Globe, ShieldOff, ShieldAlert, Pin, PinOff, Power,
+  UserPlus, Users, CheckCircle2, AlertCircle, Star, X, MousePointerClick,
+} from 'lucide-react'
+import {
+  initTheme, Button, IconButton, Switch, Badge, Kbd, Logo, DropdownMenu, ToastProvider, useToast, cn,
+} from '../ui'
 import { reviewUrl } from '../lib/links'
 
-const RATING_PROMPT_AFTER = 20
+initTheme()
 
-// One-time "rate us" banner after the user has had real value from the extension.
-function RatingPrompt() {
-  const [show, setShow] = React.useState(false)
-  React.useEffect(() => {
-    chrome.storage.local.get(['fillCount', 'ratingPromptDone']).then(({ fillCount = 0, ratingPromptDone }) => {
-      setShow(!ratingPromptDone && fillCount >= RATING_PROMPT_AFTER)
-    })
+const RATING_PROMPT_AFTER = 20
+const send = (msg) => chrome.runtime.sendMessage(msg)
+
+function hasProfileData(profile) {
+  const data = profile?.data || {}
+  return Object.entries(data).some(([k, v]) => k !== 'customFields' && typeof v === 'string' && v.trim())
+}
+
+function plural(n, word) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`
+}
+
+// ---------- data ----------
+
+function usePopupState() {
+  const [state, setState] = React.useState({ loading: true })
+
+  const load = React.useCallback(async () => {
+    try {
+      const [tab, prof, local] = await Promise.all([
+        send({ type: 'GET_TAB_STATE' }),
+        send({ type: 'GET_PROFILES' }),
+        chrome.storage.local.get(['popupProfileIds', 'fillMode', 'fillCount', 'ratingPromptDone']),
+      ])
+      setState({
+        loading: false,
+        host: tab?.host || '',
+        restricted: !!tab?.restricted,
+        fieldCount: tab?.fieldCount ?? null,
+        blocked: !!tab?.blocked,
+        siteProfileId: tab?.siteProfileId || '',
+        profiles: prof?.profiles || [],
+        activeId: prof?.activeProfileId || '',
+        popupProfileIds: Array.isArray(local.popupProfileIds) ? local.popupProfileIds : [],
+        preview: local.fillMode !== 'instant',
+        showRating: !local.ratingPromptDone && (local.fillCount || 0) >= RATING_PROMPT_AFTER,
+      })
+    } catch (e) {
+      setState({ loading: false, error: e?.message || 'Could not load SmartFill' })
+    }
   }, [])
-  if (!show) return null
-  const done = (rate) => {
-    chrome.storage.local.set({ ratingPromptDone: true })
-    setShow(false)
-    if (rate) chrome.tabs.create({ url: reviewUrl() })
-  }
+
+  React.useEffect(() => {
+    load()
+  }, [load])
+
+  return [state, setState, load]
+}
+
+// ---------- pieces ----------
+
+function ProfileSwitcher({ profiles, activeId, popupProfileIds, onSwitch }) {
+  const visible = popupProfileIds.length ? profiles.filter((p) => popupProfileIds.includes(p.id) || p.id === activeId) : profiles
+  const active = profiles.find((p) => p.id === activeId)
+  const items = [
+    ...visible.map((p) => ({
+      label: p.name || 'Profile',
+      icon: p.id === activeId ? Check : undefined,
+      onSelect: () => onSwitch(p.id),
+    })),
+    'separator',
+    { label: 'Manage profiles…', icon: Users, onSelect: () => chrome.runtime.openOptionsPage() },
+  ]
   return (
-    <div className="text-xs rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
-      <div className="text-blue-900">Enjoying SmartFill? A quick rating helps others find it.</div>
-      <div className="mt-2 flex gap-2">
-        <button onClick={() => done(true)} className="px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700">Rate SmartFill</button>
-        <button onClick={() => done(false)} className="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">No thanks</button>
+    <DropdownMenu
+      label="Switch profile"
+      trigger={
+        <button
+          type="button"
+          aria-label={`Profile: ${active?.name || 'Profile'}. Switch profile`}
+          title="Switch profile (Alt+Shift+P)"
+          className="h-8 max-w-[150px] inline-flex items-center gap-1.5 pl-2.5 pr-2 rounded-lg text-[13px] font-medium text-fg hover:bg-surface-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
+        >
+          <span className="truncate">{active?.name || 'Profile'}</span>
+          <ChevronDown size={14} className="text-fg-subtle shrink-0" aria-hidden />
+        </button>
+      }
+      items={items}
+    />
+  )
+}
+
+function SiteCard({ state, onTurnOn }) {
+  const { host, restricted, blocked, fieldCount, siteProfileId, profiles } = state
+  const pinned = profiles.find((p) => p.id === siteProfileId)
+
+  let icon = Globe
+  let tone = 'text-fg-muted bg-surface-2'
+  let title = host
+  let detail
+  if (restricted) {
+    icon = ShieldAlert
+    title = 'This page is protected'
+    detail = "Browsers don't let extensions fill forms on this page."
+  } else if (blocked) {
+    icon = ShieldOff
+    tone = 'text-danger bg-danger-subtle'
+    detail = 'SmartFill is turned off on this site.'
+  } else if (fieldCount > 0) {
+    tone = 'text-accent-text bg-accent-subtle'
+    detail = (
+      <>
+        <span className="font-semibold text-fg">{plural(fieldCount, 'field')}</span> ready to fill
+      </>
+    )
+  } else if (fieldCount === 0) {
+    detail = 'No fillable fields found on this page.'
+  } else {
+    detail = 'Reload the page if SmartFill misses its fields.'
+  }
+  const Icon = icon
+
+  return (
+    <div className="rounded-xl border border-line bg-surface p-3.5 flex items-start gap-3">
+      <div className={cn('h-9 w-9 shrink-0 rounded-lg grid place-items-center', tone)}>
+        <Icon size={18} aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-fg truncate" title={title}>{title}</p>
+        <p className="text-[13px] text-fg-muted mt-0.5">{detail}</p>
+        {pinned && !blocked && !restricted && (
+          <Badge tone="accent" icon={Pin} className="mt-2">Uses {pinned.name} here</Badge>
+        )}
+        {blocked && (
+          <Button size="sm" variant="secondary" icon={Power} className="mt-2.5" onClick={onTurnOn}>
+            Turn on for this site
+          </Button>
+        )}
       </div>
     </div>
   )
 }
 
-function App() {
-  const [status, setStatus] = React.useState('')
+function SetupCard() {
+  return (
+    <div className="rounded-xl border border-dashed border-line-strong bg-surface p-5 text-center">
+      <div className="h-10 w-10 mx-auto rounded-full bg-accent-subtle text-accent-text grid place-items-center">
+        <UserPlus size={20} aria-hidden />
+      </div>
+      <p className="mt-3 text-sm font-semibold text-fg">Add your details to start</p>
+      <p className="mt-1 text-[13px] text-fg-muted">Takes a minute. Everything stays in this browser.</p>
+      <Button
+        variant="primary"
+        className="mt-4"
+        onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') })}
+      >
+        Set up my profile
+      </Button>
+    </div>
+  )
+}
+
+function RatingCard({ onDone }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-accent-subtle px-3 py-2.5">
+      <Star size={16} className="text-accent-text shrink-0" aria-hidden />
+      <p className="flex-1 text-[13px] text-fg">Enjoying SmartFill? A rating helps others find it.</p>
+      <Button size="sm" variant="primary" onClick={() => onDone(true)}>Rate</Button>
+      <IconButton icon={X} label="Dismiss" size="sm" onClick={() => onDone(false)} />
+    </div>
+  )
+}
+
+// ---------- app ----------
+
+function Popup() {
+  const toast = useToast()
+  const [state, setState, reload] = usePopupState()
   const [busy, setBusy] = React.useState(false)
-  const [profiles, setProfiles] = React.useState([])
-  const [activeId, setActiveId] = React.useState('')
-  const [loadingProfiles, setLoadingProfiles] = React.useState(true)
-  const [popupProfileIds, setPopupProfileIds] = React.useState([])
-  const [widgetEnabled, setWidgetEnabled] = React.useState(true)
-  // Per-site state for the current tab
-  const [host, setHost] = React.useState('')
-  const [siteBlocked, setSiteBlocked] = React.useState(false)
-  const [siteProfileId, setSiteProfileId] = React.useState('')
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-        const h = /^https?:/.test(tab?.url || '') ? new URL(tab.url).host : ''
-        setHost(h)
-        if (!h) return
-        const res = await chrome.runtime.sendMessage({ type: 'GET_SITE_STATE', host: h })
-        if (res?.ok) {
-          setSiteBlocked(!!res.blocked)
-          setSiteProfileId(res.siteProfileId || '')
-        }
-      } catch {}
-    })()
-  }, [])
+  const active = state.profiles?.find((p) => p.id === state.activeId)
+  const fillProfile = state.profiles?.find((p) => p.id === (state.siteProfileId || state.activeId))
+  const needsSetup = !state.loading && state.profiles && !hasProfileData(fillProfile)
+  const canFill = !state.loading && !state.restricted && !state.blocked && !needsSetup
 
-  const toggleSiteBlocked = async (blocked) => {
-    setSiteBlocked(blocked)
-    await chrome.runtime.sendMessage({ type: 'SET_SITE_BLOCKED', host, blocked })
-    setStatus(blocked ? `SmartFill turned off on ${host}` : `SmartFill turned on for ${host}`)
-  }
+  const fail = (message) => toast({ title: message || 'Something went wrong', tone: 'danger', icon: AlertCircle })
 
-  const toggleSiteProfile = async (pin) => {
-    const id = pin ? activeId : ''
-    setSiteProfileId(id)
-    await chrome.runtime.sendMessage({ type: 'SET_SITE_PROFILE', host, profileId: id })
-    const name = profiles.find((p) => p.id === activeId)?.name || 'this profile'
-    setStatus(pin ? `${name} will always be used on ${host}` : `${host} uses the active profile`)
-  }
-
-  const autofillNow = async () => {
+  const fill = React.useCallback(async () => {
+    if (!canFill || busy) return
     setBusy(true)
-    setStatus('Autofilling...')
     try {
-      const res = await chrome.runtime.sendMessage({ type: 'AUTOFILL_ACTIVE' })
-      if (res?.ok && res.preview) {
-        // Preview is shown on the page; close so the page gets focus (Enter / Esc work there)
-        setStatus(`Review ${res.count} field(s) on the page`)
-        setTimeout(() => window.close(), 400)
-      } else if (res?.ok) setStatus(`Filled ${res?.filled ?? 0} field(s)`)
-      else setStatus(`Error: ${res?.error || 'unknown'}`)
+      const res = await send({ type: 'AUTOFILL_ACTIVE' })
+      if (!res?.ok) return fail(res?.error)
+      if (res.preview) {
+        // The preview is on the page; close so it gets focus (Enter / Esc work there).
+        toast({ title: `Review ${plural(res.count, 'field')} on the page`, icon: MousePointerClick })
+        setTimeout(() => window.close(), 350)
+      } else if (res.filled) {
+        toast({
+          title: `Filled ${plural(res.filled, 'field')}`,
+          tone: 'success',
+          icon: CheckCircle2,
+          duration: 8000,
+          action: { label: 'Undo', onClick: undo },
+        })
+      } else {
+        toast({ title: 'No fillable fields found', description: 'Try right-clicking a field instead.' })
+      }
     } catch (e) {
-      setStatus(`Error: ${e?.message}`)
+      fail(e?.message)
     } finally {
       setBusy(false)
     }
-  }
+  }, [canFill, busy])
 
-  const undoNow = async () => {
+  async function undo() {
     try {
-      const res = await chrome.runtime.sendMessage({ type: 'UNDO_ACTIVE' })
-      if (res?.ok) setStatus(res.restored ? `Restored ${res.restored} field(s)` : 'Nothing to undo')
-      else setStatus(`Error: ${res?.error || 'unknown'}`)
+      const res = await send({ type: 'UNDO_ACTIVE' })
+      if (!res?.ok) return fail(res?.error)
+      toast({ title: res.restored ? `Restored ${plural(res.restored, 'field')}` : 'Nothing to undo', icon: Undo2 })
     } catch (e) {
-      setStatus(`Error: ${e?.message}`)
+      fail(e?.message)
     }
   }
 
-  const openOptions = () => {
-    chrome.runtime.openOptionsPage()
-  }
-
-  // Keyboard shortcuts: Enter to Autofill, Escape to close popup
+  // Enter fills, Escape closes (unless a menu or input is handling the key).
   React.useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        if (!busy) autofillNow()
-      }
-      if (e.key === 'Escape') {
-        window.close()
-      }
+      if (e.defaultPrevented) return
+      const inMenu = e.target.closest?.('[role="menu"], [role="menuitem"], [aria-haspopup]')
+      if (e.key === 'Enter' && !inMenu && e.target.tagName !== 'BUTTON') { e.preventDefault(); fill() }
+      if (e.key === 'Escape' && !inMenu) window.close()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [busy])
+  }, [fill])
 
-  // Load profiles for quick switcher
-  React.useEffect(() => {
-    (async () => {
-      try {
-        setLoadingProfiles(true)
-        const res = await chrome.runtime.sendMessage({ type: 'GET_PROFILES' })
-        if (res?.ok) {
-          setProfiles(res.profiles || [])
-          setActiveId(res.activeProfileId || '')
-          const { popupProfileIds: savedIds } = await chrome.storage.local.get(['popupProfileIds'])
-          if (Array.isArray(savedIds)) setPopupProfileIds(savedIds)
-          const { widgetEnabled: w } = await chrome.storage.local.get(['widgetEnabled'])
-          setWidgetEnabled(w !== false)
-        }
-      } finally {
-        setLoadingProfiles(false)
-      }
-    })()
-  }, [])
-
-  const onSwitchProfile = async (id) => {
-    if (!id) return
-    try {
-      await chrome.runtime.sendMessage({ type: 'SET_ACTIVE_PROFILE', id })
-      setActiveId(id)
-      const p = (profiles || []).find(x => x.id === id)
-      setStatus(`Active: ${p?.name || 'Profile'}`)
-      // Give subtle confirmation, then clear after a moment
-      setTimeout(() => setStatus(''), 1500)
-    } catch (e) {
-      setStatus(`Error switching: ${e?.message}`)
+  const switchProfile = async (id) => {
+    setState((s) => ({ ...s, activeId: id }))
+    await send({ type: 'SET_ACTIVE_PROFILE', id })
+    const name = state.profiles.find((p) => p.id === id)?.name
+    if (state.siteProfileId && state.siteProfileId !== id) {
+      const pinned = state.profiles.find((p) => p.id === state.siteProfileId)?.name
+      toast({ title: `Switched to ${name}`, description: `${state.host} still uses ${pinned}.` })
+    } else {
+      toast({ title: `Switched to ${name}` })
     }
   }
 
+  const setPreview = async (on) => {
+    setState((s) => ({ ...s, preview: on }))
+    await chrome.storage.local.set({ fillMode: on ? 'preview' : 'instant' })
+  }
+
+  const setBlocked = async (blocked) => {
+    await send({ type: 'SET_SITE_BLOCKED', host: state.host, blocked })
+    await reload()
+    toast({ title: blocked ? `Turned off on ${state.host}` : `Turned on for ${state.host}`, icon: blocked ? ShieldOff : Power })
+  }
+
+  const togglePin = async () => {
+    const pin = !state.siteProfileId
+    await send({ type: 'SET_SITE_PROFILE', host: state.host, profileId: pin ? state.activeId : '' })
+    await reload()
+    toast({ title: pin ? `${active?.name} will always be used on ${state.host}` : `${state.host} now uses your active profile`, icon: pin ? Pin : PinOff })
+  }
+
+  const rated = (rate) => {
+    chrome.storage.local.set({ ratingPromptDone: true })
+    setState((s) => ({ ...s, showRating: false }))
+    if (rate) chrome.tabs.create({ url: reviewUrl() })
+  }
+
   return (
-    <div className="w-[22rem] max-w-full">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b bg-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-md bg-blue-600 grid place-items-center" aria-hidden="true">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
-                <path fill="#ffffff" d="M13.5 2.5l-8 10.2c-.2.3 0 .8.4.8h6.2l-1.2 7.4c-.1.6.7.9 1.1.4l8-10.2c.2-.3 0-.8-.4-.8h-6.2l1.2-7.4c.1-.6-.7-.9-1.1-.4z"/>
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-base font-semibold leading-tight">SmartFill</h1>
-              <p className="text-[11px] text-gray-500 -mt-0.5">Quickly autofill forms</p>
-            </div>
-          </div>
-          <button onClick={openOptions} className="text-xs px-2.5 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 inline-flex items-center gap-1" aria-label="Open options">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
-              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.08a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.08a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.08a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .66.39 1.25 1 1.51H21a2 2 0 1 1 0 4h-.08a1.65 1.65 0 0 0-1.51 1Z"/>
-            </svg>
-            <span>Options</span>
-          </button>
-        </div>
+    <div className="w-[360px] bg-bg text-fg">
+      <header className="h-14 px-3.5 flex items-center gap-2 border-b border-line bg-surface">
+        <Logo size={22} />
+        <span className="text-[15px] font-semibold tracking-tight mr-auto">SmartFill</span>
+        {state.profiles?.length > 0 && (
+          <ProfileSwitcher profiles={state.profiles} activeId={state.activeId} popupProfileIds={state.popupProfileIds} onSwitch={switchProfile} />
+        )}
+        <IconButton icon={Settings} label="Settings" size="sm" onClick={() => chrome.runtime.openOptionsPage()} />
+      </header>
 
-        {/* Quick Profile Switcher */}
-        <div className="mt-3">
-          <div className="flex items-center justify-between mb-1">
-            <div className="block text-[11px] text-gray-600">Active profile</div>
-            {loadingProfiles && <div className="text-[11px] text-gray-400">Loading…</div>}
+      <main className="p-3.5 space-y-3">
+        {state.loading ? (
+          <div className="space-y-3" aria-busy="true" aria-label="Loading">
+            <div className="h-[74px] rounded-xl bg-surface-2 animate-pulse" />
+            <div className="h-11 rounded-xl bg-surface-2 animate-pulse" />
           </div>
-          <div className="max-h-48 overflow-y-auto pr-1 custom-scroll">
-            <div role="radiogroup" aria-label="Profiles" className="grid grid-cols-2 gap-2">
-              {(() => {
-                const list = (Array.isArray(popupProfileIds) && popupProfileIds.length)
-                  ? (profiles || []).filter(p => popupProfileIds.includes(p.id))
-                  : (profiles || [])
-                if (list.length === 0) {
-                  return (
-                    <div className="col-span-2 text-[11px] text-gray-500">{loadingProfiles ? 'Loading profiles…' : 'No profiles found'}</div>
-                  )
-                }
-                return list.map(p => {
-                  const isActive = p.id === activeId
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={isActive}
-                      onClick={() => onSwitchProfile(p.id)}
-                      className={`w-full text-left px-2.5 py-2 rounded-md border text-xs inline-flex items-center gap-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40
-                        ${isActive ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-50'}`}
-                    >
-                      <span className={`inline-grid place-items-center rounded-md ${isActive ? 'bg-blue-600' : 'bg-gray-200'} w-5 h-5`} aria-hidden="true">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="10" height="10">
-                          <path fill={isActive ? '#ffffff' : '#111827'} d="M13.5 2.5l-8 10.2c-.2.3 0 .8.4.8h6.2l-1.2 7.4c-.1.6.7.9 1.1.4l8-10.2c.2-.3 0-.8-.4-.8h-6.2l1.2-7.4c.1-.6-.7-.9-1.1-.4z"/>
-                        </svg>
-                      </span>
-                      <span className="truncate">{p.name || 'Profile'}</span>
-                    </button>
-                  )
-                })
-              })()}
+        ) : state.error ? (
+          <div className="rounded-xl border border-danger/40 bg-danger-subtle p-3.5 text-[13px] text-danger flex gap-2">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" aria-hidden />
+            {state.error}
+          </div>
+        ) : needsSetup ? (
+          <SetupCard />
+        ) : (
+          <>
+            {(state.host || state.restricted) && <SiteCard state={state} onTurnOn={() => setBlocked(false)} />}
+
+            <Button variant="primary" size="lg" fullWidth icon={Wand2} loading={busy} disabled={!canFill} onClick={fill}>
+              {busy ? 'Filling…' : 'Fill form'}
+            </Button>
+
+            <div className="rounded-xl border border-line bg-surface px-3.5 py-3">
+              <Switch
+                size="sm"
+                checked={state.preview}
+                onChange={setPreview}
+                label="Preview before filling"
+                description={state.preview ? 'Review fields on the page, then confirm.' : 'Fills immediately. You can still undo.'}
+              />
             </div>
-          </div>
-        </div>
-      </div>
+          </>
+        )}
 
-      {/* Body */}
-      <div className="p-4 space-y-3">
-        <RatingPrompt />
+        {state.showRating && <RatingCard onDone={rated} />}
+      </main>
 
-        <div className="grid grid-cols-[1fr,auto] gap-2">
-          <button onClick={autofillNow} disabled={busy} className={`btn px-4 py-2 rounded-md text-white text-sm inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${busy ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`} aria-label="Autofill now">
-            {/* <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-              <path d="M6 12h12"/>
-              <path d="M12 6v12"/>
-            </svg> */}
-            {busy ? 'Autofilling…' : 'Autofill Now'}
-          </button>
-          <button onClick={undoNow} className="px-3 py-2 rounded-md border border-gray-300 text-gray-700 text-sm hover:bg-gray-50" aria-label="Undo last fill" title="Undo last fill (Alt+Shift+Z)">
+      {!state.loading && !state.error && !needsSetup && (
+        <footer className="px-2 pb-2 flex items-center gap-1 border-t border-line pt-2">
+          <Button variant="ghost" size="sm" icon={Undo2} onClick={undo} disabled={state.restricted}>
             Undo
-          </button>
-        </div>
+          </Button>
+          {state.host && !state.blocked && (
+            <Button variant="ghost" size="sm" icon={ShieldOff} onClick={() => setBlocked(true)}>
+              Off here
+            </Button>
+          )}
+          {state.host && !state.blocked && state.profiles.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={state.siteProfileId ? PinOff : Pin}
+              onClick={togglePin}
+              title={state.siteProfileId ? 'Stop using a fixed profile on this site' : `Always use ${active?.name} on this site`}
+              className="ml-auto"
+            >
+              {state.siteProfileId ? 'Unpin' : 'Pin profile'}
+            </Button>
+          )}
+        </footer>
+      )}
 
-        {/* This site */}
-        {host && (
-          <div className="pt-2 border-t space-y-2 text-xs">
-            <div className="font-medium text-gray-700 truncate" title={host}>On {host}</div>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="h-3.5 w-3.5" checked={siteBlocked} onChange={(e) => toggleSiteBlocked(e.target.checked)} />
-              <span>Turn off SmartFill on this site</span>
-            </label>
-            {!siteBlocked && profiles.length > 1 && (
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  className="h-3.5 w-3.5"
-                  checked={!!siteProfileId}
-                  onChange={(e) => toggleSiteProfile(e.target.checked)}
-                />
-                <span className="truncate">
-                  {siteProfileId
-                    ? `Always use "${profiles.find((p) => p.id === siteProfileId)?.name || 'Profile'}" here`
-                    : `Always use "${profiles.find((p) => p.id === activeId)?.name || 'Profile'}" here`}
-                </span>
-              </label>
-            )}
-          </div>
-        )}
-
-        {/* Widget toggle */}
-        <div className="mt-1 pt-2 border-t">
-          <label className="flex items-center gap-3 text-xs">
-            <input
-              type="checkbox"
-              className="h-3.5 w-3.5"
-              checked={!!widgetEnabled}
-              onChange={async (e) => {
-                const val = !!e.target.checked
-                setWidgetEnabled(val)
-                await chrome.storage.local.set({ widgetEnabled: val })
-                setStatus(`Widget ${val ? 'enabled' : 'disabled'}`)
-                setTimeout(() => setStatus(''), 1200)
-              }}
-            />
-            <span>Enable SmartFill widget</span>
-          </label>
-        </div>
-
-        <div className="text-[11px] text-gray-500 pt-1">
-          Shortcuts: <b>Alt+Shift+F</b> fill · <b>Alt+Shift+Z</b> undo · <b>Alt+Shift+P</b> next profile. Right-click any field to fill it.
-        </div>
-        
-        {status && (
-          <div className={`text-xs px-3 py-2 mx-0 rounded-md border ${status.startsWith('Error') ? 'bg-red-50 text-red-800 border-red-200' : 'bg-green-50 text-green-800 border-green-200'}`} role="status" aria-live="polite">
-            {status}
-          </div>
-        )}
-      </div>
+      <p className="px-3.5 pb-3 pt-1 text-[11px] text-fg-subtle flex items-center gap-1.5">
+        <Kbd keys={['Alt', 'Shift', 'F']} /> to fill
+        <span aria-hidden>·</span>
+        Right-click any field to fill it
+      </p>
     </div>
   )
 }
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ToastProvider>
+      <Popup />
+    </ToastProvider>
   </React.StrictMode>
 )

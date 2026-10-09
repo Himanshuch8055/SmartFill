@@ -54,8 +54,8 @@ function Hub() {
         <Field label="Active tab URL" className="w-72">
           <Input value={site} onChange={(e) => setSite(e.target.value)} />
         </Field>
-        <Field label="Fields on page" className="w-28">
-          <Input type="number" min="0" value={fields} onChange={(e) => setFields(e.target.value)} />
+        <Field label="Fields on page" hint="Number or 'unknown'" className="w-32">
+          <Input value={fields} onChange={(e) => setFields(e.target.value)} />
         </Field>
         <div className="flex gap-2 ml-auto">
           <Button icon={RotateCcw} onClick={reset}>Reset sample data</Button>
