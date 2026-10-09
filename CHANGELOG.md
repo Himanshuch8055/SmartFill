@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- "Report this site" link in the popup when no form fields are found. It opens a pre-filled report with only the site's domain.
+- After uninstalling, a short page with fixes for common problems and ways to report them. Nothing is collected.
+
 ## [1.0.0] - 2026-10-09
 
 First public release.

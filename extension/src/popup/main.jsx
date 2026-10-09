@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import '../styles.css'
 import { Settings, ChevronDown, Check } from 'lucide-react'
 import { initTheme, IconButton, Switch, DropdownMenu, cn } from '../ui'
-import { reviewUrl } from '../lib/links'
+import { reviewUrl, reportSiteUrl } from '../lib/links'
 
 initTheme()
 
@@ -246,6 +246,17 @@ function Popup() {
             <p className="text-[13px] mt-0.5 text-fg-muted">
               {status}
               {pinnedProfile && canFill && <> · uses {pinnedProfile.name}</>}
+              {state.fieldCount === 0 && state.host && !state.blocked && (
+                <>
+                  {' · '}
+                  <LinkButton
+                    className="text-[13px] text-accent-text hover:text-accent-text"
+                    onClick={() => chrome.tabs.create({ url: reportSiteUrl(state.host, chrome.runtime.getManifest?.().version) })}
+                  >
+                    Report this site
+                  </LinkButton>
+                </>
+              )}
             </p>
 
             <button
