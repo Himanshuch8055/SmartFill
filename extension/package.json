@@ -10,7 +10,8 @@
     "test": "vitest run",
     "package": "npm run build && node scripts/build-firefox.mjs && node scripts/package.mjs",
     "build:firefox": "npm run build && node scripts/build-firefox.mjs",
-    "dev:ui": "vite --config vite.ui.config.js"
+    "dev:ui": "vite --config vite.ui.config.js",
+    "store:screenshots": "node scripts/store-screenshots.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.460.0",
@@ -22,6 +23,7 @@
     "@vitejs/plugin-react-swc": "^3.7.1",
     "archiver": "^7.0.1",
     "autoprefixer": "^10.6.1",
+    "axe-core": "^4.10.2",
     "jsdom": "^25.0.1",
     "postcss": "^8.5.29",
     "sharp": "^0.35.5",

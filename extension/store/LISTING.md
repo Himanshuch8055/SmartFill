@@ -64,6 +64,10 @@ Keyboard shortcuts: Alt+Shift+F fill · Alt+Shift+Z undo · Alt+Shift+P switch p
 ## Before submitting
 - [ ] Set `SITE_URL` in `src/lib/links.js` to the deployed website; privacy policy URL = `SITE_URL/privacy`.
 - [ ] Put the same privacy-policy URL in both store dashboards.
-- [ ] Screenshots (1280×800): preview overlay on a sign-up form, popup with profiles, options profile page, right-click menu, welcome page.
-- [ ] Promo tile 440×280 (Chrome small tile).
+- [x] Screenshots (1280×800) and promo tile (440×280) are in `store/screenshots/`. To regenerate them after UI changes, run `npm run dev:ui` and then `npm run store:screenshots`.
+  1. `1-fill-preview.png`: Fill any form in one click (preview on a job application)
+  2. `2-popup.png`: Your details, one click away (popup)
+  3. `3-profiles.png`: Profiles for every part of life (settings)
+  4. `4-privacy.png`: Private by design (About page)
+  - `promo-tile-440x280.png`: Chrome small promo tile
 - [ ] `npm test` passes and `npm run package` produces the zips in `release/`.
