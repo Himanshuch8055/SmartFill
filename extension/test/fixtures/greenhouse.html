@@ -1,0 +1,24 @@
+<!-- Greenhouse-style job application -->
+<form id="application_form">
+  <div class="field"><label for="first_name">First Name <span>*</span></label><input id="first_name" name="job_application[first_name]" type="text" data-expect="firstName"></div>
+  <div class="field"><label for="last_name">Last Name <span>*</span></label><input id="last_name" name="job_application[last_name]" type="text" data-expect="lastName"></div>
+  <div class="field"><label for="email">Email <span>*</span></label><input id="email" name="job_application[email]" type="text" data-expect="email"></div>
+  <div class="field"><label for="phone">Phone</label><input id="phone" name="job_application[phone]" type="text" data-expect="phone"></div>
+  <div class="field"><label for="resume">Resume/CV</label><input id="resume" type="file" data-expect="none"></div>
+  <div class="field"><label for="q0">LinkedIn Profile</label>
+    <input id="q0" name="job_application[answers_attributes][0][text_value]" type="text" data-expect="linkedin"></div>
+  <div class="field"><label for="q1">Website</label>
+    <input id="q1" name="job_application[answers_attributes][1][text_value]" type="text" data-expect="website"></div>
+  <div class="field"><label for="q2">GitHub URL</label>
+    <input id="q2" name="job_application[answers_attributes][2][text_value]" type="text" data-expect="github"></div>
+  <div class="field"><label for="q3">How did you hear about this job?</label>
+    <input id="q3" name="job_application[answers_attributes][3][text_value]" type="text" data-expect="none"></div>
+  <div class="field"><label for="q4">What is your notice period?</label>
+    <input id="q4" name="job_application[answers_attributes][4][text_value]" type="text" data-expect="noticePeriod"></div>
+  <div class="field"><label for="q5">Expected salary (CTC)</label>
+    <input id="q5" name="job_application[answers_attributes][5][text_value]" type="text" data-expect="expectedCtc"></div>
+  <div class="field"><label for="q6">Total years of experience</label>
+    <input id="q6" name="job_application[answers_attributes][6][text_value]" type="text" data-expect="yearsExperience"></div>
+  <div class="field"><label for="q7">Are you legally authorized to work in this country?</label>
+    <select id="q7" name="job_application[answers_attributes][7][boolean_value]" data-expect="none"><option>Yes</option><option>No</option></select></div>
+</form>

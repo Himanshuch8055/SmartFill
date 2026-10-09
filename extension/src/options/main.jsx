@@ -1,8 +1,11 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import '../styles.css'
+import { PROFILE_SECTIONS } from '../lib/profileFields'
+import SiteRules from './SiteRules'
+import { PRIVACY_URL } from '../lib/links'
 
-function Field({ label, name, placeholder, value, onChange }) {
+function Field({ label, name, placeholder, value, onChange, type = 'text', options, full }) {
   const [val, setVal] = React.useState(value ?? '')
 
   // keep local state in sync if parent value changes (e.g., after load)
@@ -16,16 +19,25 @@ function Field({ label, name, placeholder, value, onChange }) {
     onChange(name, next)
   }
 
+  const cls = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition'
+  let control
+  if (type === 'select') {
+    control = (
+      <select value={val} onChange={handleChange} className={cls}>
+        <option value="">—</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    )
+  } else if (type === 'textarea') {
+    control = <textarea rows={4} value={val} onChange={handleChange} placeholder={placeholder} className={cls} />
+  } else {
+    control = <input type={type} value={val} onChange={handleChange} placeholder={placeholder} className={cls} />
+  }
+
   return (
-    <label className="block">
+    <label className={`block ${full ? 'md:col-span-2' : ''}`}>
       <span className="block text-sm font-medium text-gray-800 mb-1">{label}</span>
-      <input
-        type="text"
-        value={val}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition"
-      />
+      {control}
     </label>
   )
 }
@@ -39,7 +51,7 @@ function Options() {
   const [activeId, setActiveId] = React.useState('')
   // ui state
   const [status, setStatus] = React.useState('')
-  const [activeTab, setActiveTab] = React.useState('profile') // profile | custom | settings
+  const [activeTab, setActiveTab] = React.useState('profile') // profile | custom | rules | settings
   const [saving, setSaving] = React.useState(false)
   const [saveState, setSaveState] = React.useState('idle') // idle | saving | saved | error
   const [toast, setToast] = React.useState({ show: false, text: '', kind: 'info' })
@@ -47,6 +59,7 @@ function Options() {
   const [popupProfileIds, setPopupProfileIds] = React.useState([])
   // widget enable/disable
   const [widgetEnabled, setWidgetEnabled] = React.useState(true)
+  const [fillMode, setFillMode] = React.useState('preview') // preview | instant
   // filter profiles in sidebar
   const [profileQuery, setProfileQuery] = React.useState('')
   // filter in popup profiles chooser
@@ -77,7 +90,8 @@ function Options() {
         // load popup visibility selection
         const { popupProfileIds: savedIds } = await chrome.storage.local.get(['popupProfileIds'])
         if (Array.isArray(savedIds)) setPopupProfileIds(savedIds)
-        const { widgetEnabled: w } = await chrome.storage.local.get(['widgetEnabled'])
+        const { widgetEnabled: w, fillMode: fm } = await chrome.storage.local.get(['widgetEnabled', 'fillMode'])
+        setFillMode(fm === 'instant' ? 'instant' : 'preview')
         setWidgetEnabled(w !== false)
       }
     } catch (e) {
@@ -107,7 +121,8 @@ function Options() {
   const clearSection = (keys) => {
     setProfile((p) => {
       const next = { ...p }
-      keys.forEach((k) => { delete next[k] })
+      // Set to '' (not delete) so the save, which merges into stored data, actually clears them
+      keys.forEach((k) => { next[k] = '' })
       return next
     })
   }
@@ -400,6 +415,7 @@ function Options() {
           <nav className="hidden sm:flex items-center justify-center gap-1" role="tablist" aria-label="Sections">
             <button role="tab" aria-selected={activeTab==='profile'} onClick={() => setActiveTab('profile')} className={`px-2 py-1 rounded-md text-sm border ${activeTab==='profile' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}`}>Profile</button>
             <button role="tab" aria-selected={activeTab==='custom'} onClick={() => setActiveTab('custom')} className={`px-2 py-1 rounded-md text-sm border ${activeTab==='custom' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}`}>Custom</button>
+            <button role="tab" aria-selected={activeTab==='rules'} onClick={() => setActiveTab('rules')} className={`px-2 py-1 rounded-md text-sm border ${activeTab==='rules' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}`}>Site rules</button>
             <button role="tab" aria-selected={activeTab==='settings'} onClick={() => setActiveTab('settings')} className={`px-2 py-1 rounded-md text-sm border ${activeTab==='settings' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'}`}>Settings</button>
           </nav>
           <div className="flex items-center gap-2">
@@ -527,49 +543,25 @@ function Options() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <section className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <h2 className="text-base font-semibold">Profile</h2>
-                {/* Contact */}
-                <div className="flex items-center justify-between mt-2 mb-3">
-                  <h3 className="text-sm font-semibold">Contact</h3>
-                  <div className="flex items-center gap-3 text-xs text-gray-600">
-                    <span>{countFilled(['fullName','email','phone'])}/3 filled</span>
-                    <button onClick={() => clearSection(['fullName','email','phone'])} className="px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50">Clear</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label="Full Name" name="fullName" placeholder="John Doe" value={profile?.fullName} onChange={onFieldChange} />
-                  <Field label="Email" name="email" placeholder="john@example.com" value={profile?.email} onChange={onFieldChange} />
-                  <Field label="Phone" name="phone" placeholder="+1 555-1234" value={profile?.phone} onChange={onFieldChange} />
-                </div>
-                {/* Work */}
-                <div className="flex items-center justify-between mt-6 mb-3">
-                  <h3 className="text-sm font-semibold">Work</h3>
-                  <div className="flex items-center gap-3 text-xs text-gray-600">
-                    <span>{countFilled(['company','jobTitle','website','linkedin'])}/4 filled</span>
-                    <button onClick={() => clearSection(['company','jobTitle','website','linkedin'])} className="px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50">Clear</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label="Company" name="company" placeholder="Acme Inc." value={profile?.company} onChange={onFieldChange} />
-                  <Field label="Job Title" name="jobTitle" placeholder="Software Engineer" value={profile?.jobTitle} onChange={onFieldChange} />
-                  <Field label="Website" name="website" placeholder="https://example.com" value={profile?.website} onChange={onFieldChange} />
-                  <Field label="LinkedIn" name="linkedin" placeholder="https://linkedin.com/in/john" value={profile?.linkedin} onChange={onFieldChange} />
-                </div>
-                {/* Address */}
-                <div className="flex items-center justify-between mt-6 mb-3">
-                  <h3 className="text-sm font-semibold">Address</h3>
-                  <div className="flex items-center gap-3 text-xs text-gray-600">
-                    <span>{countFilled(['address1','address2','city','state','zip','country'])}/6 filled</span>
-                    <button onClick={() => clearSection(['address1','address2','city','state','zip','country'])} className="px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50">Clear</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label="Address Line 1" name="address1" placeholder="123 Main St" value={profile?.address1} onChange={onFieldChange} />
-                  <Field label="Address Line 2" name="address2" placeholder="Apt 4B" value={profile?.address2} onChange={onFieldChange} />
-                  <Field label="City" name="city" placeholder="San Francisco" value={profile?.city} onChange={onFieldChange} />
-                  <Field label="State/Province" name="state" placeholder="CA" value={profile?.state} onChange={onFieldChange} />
-                  <Field label="ZIP/Postal" name="zip" placeholder="94105" value={profile?.zip} onChange={onFieldChange} />
-                  <Field label="Country" name="country" placeholder="USA" value={profile?.country} onChange={onFieldChange} />
-                </div>
+                {PROFILE_SECTIONS.map((sec, i) => {
+                  const keys = sec.fields.map((f) => f.name)
+                  return (
+                    <React.Fragment key={sec.title}>
+                      <div className={`flex items-center justify-between ${i === 0 ? 'mt-2' : 'mt-6'} mb-3`}>
+                        <h3 className="text-sm font-semibold">{sec.title}</h3>
+                        <div className="flex items-center gap-3 text-xs text-gray-600">
+                          <span>{countFilled(keys)}/{keys.length} filled</span>
+                          <button onClick={() => clearSection(keys)} className="px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50">Clear</button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {sec.fields.map((f) => (
+                          <Field key={f.name} {...f} value={profile?.[f.name]} onChange={onFieldChange} />
+                        ))}
+                      </div>
+                    </React.Fragment>
+                  )
+                })}
               </section>
 
               <aside className="lg:col-span-1 space-y-6">
@@ -645,6 +637,8 @@ function Options() {
               </div>
             </section>
           )}
+
+          {activeTab === 'rules' && <SiteRules />}
 
           {activeTab === 'settings' && (
             <section className="space-y-6">
@@ -739,15 +733,50 @@ function Options() {
                     <div className="text-[12px] text-gray-500 mt-0.5">Toggles the on-page button to quickly autofill forms. Changes take effect immediately on open pages.</div>
                   </div>
                 </label>
+                <label className="mt-4 flex items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4"
+                    checked={fillMode === 'preview'}
+                    onChange={async (e) => {
+                      const val = e.target.checked ? 'preview' : 'instant'
+                      setFillMode(val)
+                      await chrome.storage.local.set({ fillMode: val })
+                      setToast({ show: true, text: val === 'preview' ? 'Preview before filling' : 'Fill instantly', kind: 'info' })
+                      setTimeout(() => setToast((t) => ({ ...t, show: false })), 1200)
+                    }}
+                  />
+                  <div>
+                    <div className="font-medium">Preview before filling</div>
+                    <div className="text-[12px] text-gray-500 mt-0.5">Highlights the fields SmartFill will fill and asks you to confirm. Turn off to fill instantly. Every fill can be undone.</div>
+                  </div>
+                </label>
+                <div className="mt-4 text-[12px] text-gray-600">
+                  Keyboard shortcuts: <b>Alt+Shift+F</b> fill · <b>Alt+Shift+Z</b> undo · <b>Alt+Shift+P</b> next profile.
+                  Change them at <span className="font-mono">chrome://extensions/shortcuts</span>.
+                </div>
               </div>
 
               {/* Data management third (no drag & drop) */}
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <h2 className="text-base font-semibold">Data management</h2>
-                <p className="text-sm text-gray-600 mt-1">Export a backup of your profiles or import from a JSON file.</p>
+                <p className="text-sm text-gray-600 mt-1">Export a full backup (profiles, site rules, site settings and preferences) or restore one from a JSON file.</p>
                 <div className="mt-4 flex items-center gap-2">
                   <button onClick={onExport} className="px-3 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50" aria-label="Export profiles">Export JSON</button>
                   <button onClick={onImport} className="px-3 py-2 rounded-md text-white bg-gray-800 hover:bg-gray-900" aria-label="Import profiles">Import JSON</button>
+                </div>
+              </div>
+
+              {/* Privacy */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h2 className="text-base font-semibold">Privacy</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Everything you save in SmartFill stays in this browser. Nothing is sent to any server, and SmartFill never fills
+                  passwords, card numbers, OTPs or ID numbers.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a href={PRIVACY_URL} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm">Privacy policy</a>
+                  <a href={chrome.runtime.getURL('welcome.html')} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm">Open welcome guide</a>
                 </div>
               </div>
 

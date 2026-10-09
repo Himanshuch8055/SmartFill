@@ -2,7 +2,6 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,11 +65,4 @@ fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
 
 console.log('Prepared Firefox-friendly build at dist-firefox/.');
 
-// Zip it one level up as smartfill-firefox.zip
-try {
-  execSync(`cd ${outDir} && zip -r ../smartfill-firefox.zip .`, { stdio: 'inherit', shell: '/bin/zsh' });
-  console.log('Created zip: smartfill-firefox.zip');
-} catch (e) {
-  console.error('Failed to zip:', e.message);
-  process.exit(1);
-}
+// Zipping is done by scripts/package.mjs (npm run package).

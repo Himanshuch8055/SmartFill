@@ -2,6 +2,34 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './popup.css'
 import '../styles.css'
+import { reviewUrl } from '../lib/links'
+
+const RATING_PROMPT_AFTER = 20
+
+// One-time "rate us" banner after the user has had real value from the extension.
+function RatingPrompt() {
+  const [show, setShow] = React.useState(false)
+  React.useEffect(() => {
+    chrome.storage.local.get(['fillCount', 'ratingPromptDone']).then(({ fillCount = 0, ratingPromptDone }) => {
+      setShow(!ratingPromptDone && fillCount >= RATING_PROMPT_AFTER)
+    })
+  }, [])
+  if (!show) return null
+  const done = (rate) => {
+    chrome.storage.local.set({ ratingPromptDone: true })
+    setShow(false)
+    if (rate) chrome.tabs.create({ url: reviewUrl() })
+  }
+  return (
+    <div className="text-xs rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
+      <div className="text-blue-900">Enjoying SmartFill? A quick rating helps others find it.</div>
+      <div className="mt-2 flex gap-2">
+        <button onClick={() => done(true)} className="px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700">Rate SmartFill</button>
+        <button onClick={() => done(false)} className="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">No thanks</button>
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const [status, setStatus] = React.useState('')
@@ -11,18 +39,66 @@ function App() {
   const [loadingProfiles, setLoadingProfiles] = React.useState(true)
   const [popupProfileIds, setPopupProfileIds] = React.useState([])
   const [widgetEnabled, setWidgetEnabled] = React.useState(true)
+  // Per-site state for the current tab
+  const [host, setHost] = React.useState('')
+  const [siteBlocked, setSiteBlocked] = React.useState(false)
+  const [siteProfileId, setSiteProfileId] = React.useState('')
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        const h = /^https?:/.test(tab?.url || '') ? new URL(tab.url).host : ''
+        setHost(h)
+        if (!h) return
+        const res = await chrome.runtime.sendMessage({ type: 'GET_SITE_STATE', host: h })
+        if (res?.ok) {
+          setSiteBlocked(!!res.blocked)
+          setSiteProfileId(res.siteProfileId || '')
+        }
+      } catch {}
+    })()
+  }, [])
+
+  const toggleSiteBlocked = async (blocked) => {
+    setSiteBlocked(blocked)
+    await chrome.runtime.sendMessage({ type: 'SET_SITE_BLOCKED', host, blocked })
+    setStatus(blocked ? `SmartFill turned off on ${host}` : `SmartFill turned on for ${host}`)
+  }
+
+  const toggleSiteProfile = async (pin) => {
+    const id = pin ? activeId : ''
+    setSiteProfileId(id)
+    await chrome.runtime.sendMessage({ type: 'SET_SITE_PROFILE', host, profileId: id })
+    const name = profiles.find((p) => p.id === activeId)?.name || 'this profile'
+    setStatus(pin ? `${name} will always be used on ${host}` : `${host} uses the active profile`)
+  }
 
   const autofillNow = async () => {
     setBusy(true)
     setStatus('Autofilling...')
     try {
       const res = await chrome.runtime.sendMessage({ type: 'AUTOFILL_ACTIVE' })
-      if (res?.ok) setStatus(`Filled ${res?.filled ?? 0} field(s)`) 
+      if (res?.ok && res.preview) {
+        // Preview is shown on the page; close so the page gets focus (Enter / Esc work there)
+        setStatus(`Review ${res.count} field(s) on the page`)
+        setTimeout(() => window.close(), 400)
+      } else if (res?.ok) setStatus(`Filled ${res?.filled ?? 0} field(s)`)
       else setStatus(`Error: ${res?.error || 'unknown'}`)
     } catch (e) {
       setStatus(`Error: ${e?.message}`)
     } finally {
       setBusy(false)
+    }
+  }
+
+  const undoNow = async () => {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'UNDO_ACTIVE' })
+      if (res?.ok) setStatus(res.restored ? `Restored ${res.restored} field(s)` : 'Nothing to undo')
+      else setStatus(`Error: ${res?.error || 'unknown'}`)
+    } catch (e) {
+      setStatus(`Error: ${e?.message}`)
     }
   }
 
@@ -150,8 +226,9 @@ function App() {
 
       {/* Body */}
       <div className="p-4 space-y-3">
+        <RatingPrompt />
 
-        <div className="grid grid-cols-1 gap-2">
+        <div className="grid grid-cols-[1fr,auto] gap-2">
           <button onClick={autofillNow} disabled={busy} className={`btn px-4 py-2 rounded-md text-white text-sm inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${busy ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`} aria-label="Autofill now">
             {/* <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
               <path d="M6 12h12"/>
@@ -159,7 +236,36 @@ function App() {
             </svg> */}
             {busy ? 'Autofilling…' : 'Autofill Now'}
           </button>
+          <button onClick={undoNow} className="px-3 py-2 rounded-md border border-gray-300 text-gray-700 text-sm hover:bg-gray-50" aria-label="Undo last fill" title="Undo last fill (Alt+Shift+Z)">
+            Undo
+          </button>
         </div>
+
+        {/* This site */}
+        {host && (
+          <div className="pt-2 border-t space-y-2 text-xs">
+            <div className="font-medium text-gray-700 truncate" title={host}>On {host}</div>
+            <label className="flex items-center gap-3">
+              <input type="checkbox" className="h-3.5 w-3.5" checked={siteBlocked} onChange={(e) => toggleSiteBlocked(e.target.checked)} />
+              <span>Turn off SmartFill on this site</span>
+            </label>
+            {!siteBlocked && profiles.length > 1 && (
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5"
+                  checked={!!siteProfileId}
+                  onChange={(e) => toggleSiteProfile(e.target.checked)}
+                />
+                <span className="truncate">
+                  {siteProfileId
+                    ? `Always use "${profiles.find((p) => p.id === siteProfileId)?.name || 'Profile'}" here`
+                    : `Always use "${profiles.find((p) => p.id === activeId)?.name || 'Profile'}" here`}
+                </span>
+              </label>
+            )}
+          </div>
+        )}
 
         {/* Widget toggle */}
         <div className="mt-1 pt-2 border-t">
@@ -181,7 +287,7 @@ function App() {
         </div>
 
         <div className="text-[11px] text-gray-500 pt-1">
-          Tip: Keep the form page focused for best results.
+          Shortcuts: <b>Alt+Shift+F</b> fill · <b>Alt+Shift+Z</b> undo · <b>Alt+Shift+P</b> next profile. Right-click any field to fill it.
         </div>
         
         {status && (

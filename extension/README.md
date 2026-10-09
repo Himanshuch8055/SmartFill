@@ -80,3 +80,12 @@ This uses `sharp` to produce multiple sizes into the `icons/` directory.
 
 ## Contact
 If anything is unclear or you need additional instructions, please see inline comments in `scripts/build-firefox.mjs` and the manifest configuration in `manifest.config.js`.
+
+## Testing and releasing
+
+```bash
+npm test          # unit tests (Vitest + jsdom)
+npm run package   # builds Chrome + Firefox and writes store zips to release/
+```
+
+`release/` contains `smartfill-chrome-<version>.zip`, `smartfill-firefox-<version>.zip` and `smartfill-source-<version>.zip` (the source archive Firefox Add-ons reviewers ask for). Store listing text, permission justifications and the pre-submission checklist are in [store/LISTING.md](store/LISTING.md).

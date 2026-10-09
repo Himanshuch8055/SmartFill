@@ -10,3 +10,37 @@
 body {
   @apply bg-gray-50 text-gray-900;
 }
+
+/* Dark mode: follows the system setting. Remaps the light utility palette used across
+   popup/options so components don't each need dark: variants. */
+@media (prefers-color-scheme: dark) {
+  :root { color-scheme: dark; }
+  body { background-color: #0b1120; color: #e5e7eb; }
+
+  .bg-white, .bg-white\/80, .bg-white\/60 { background-color: #111827 !important; }
+  .bg-gray-50, .hover\:bg-gray-50:hover { background-color: #1f2937 !important; }
+  .bg-gray-100 { background-color: #1f2937 !important; }
+  .bg-blue-50, .hover\:bg-blue-50:hover { background-color: rgba(37, 99, 235, 0.18) !important; }
+  .bg-red-50, .hover\:bg-red-50:hover { background-color: rgba(220, 38, 38, 0.15) !important; }
+  .bg-green-50 { background-color: rgba(22, 163, 74, 0.15) !important; }
+
+  .text-gray-900, .text-gray-800 { color: #f3f4f6 !important; }
+  .text-gray-700 { color: #e5e7eb !important; }
+  .text-gray-600, .text-gray-500 { color: #9ca3af !important; }
+  .text-gray-400, .text-gray-300 { color: #6b7280 !important; }
+  .text-blue-700, .text-blue-900, .text-blue-900\/80 { color: #93c5fd !important; }
+  .text-red-600, .text-red-800 { color: #fca5a5 !important; }
+  .text-green-800 { color: #86efac !important; }
+
+  .border, .border-b, .border-t, .border-gray-200, .border-gray-300, .border-gray-100 { border-color: #374151 !important; }
+  .border-blue-100, .border-blue-200 { border-color: rgba(59, 130, 246, 0.4) !important; }
+  .border-red-200 { border-color: rgba(248, 113, 113, 0.4) !important; }
+  .border-green-200 { border-color: rgba(74, 222, 128, 0.4) !important; }
+  .divide-gray-100 > * + * { border-color: #1f2937 !important; }
+  .ring-blue-100, .focus\:ring-blue-100:focus { --tw-ring-color: rgba(59, 130, 246, 0.3) !important; }
+  .shadow-sm { box-shadow: none !important; }
+
+  input, textarea, select { color-scheme: dark; }
+  .custom-scroll { scrollbar-color: #4b5563 transparent; }
+  .custom-scroll::-webkit-scrollbar-thumb { background-color: #4b5563; }
+}
