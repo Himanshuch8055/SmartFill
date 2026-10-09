@@ -9,9 +9,11 @@
     "icons": "node scripts/gen-icons.mjs",
     "test": "vitest run",
     "package": "npm run build && node scripts/build-firefox.mjs && node scripts/package.mjs",
-    "build:firefox": "npm run build && node scripts/build-firefox.mjs"
+    "build:firefox": "npm run build && node scripts/build-firefox.mjs",
+    "dev:ui": "vite --config vite.ui.config.js"
   },
   "dependencies": {
+    "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
