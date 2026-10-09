@@ -69,6 +69,30 @@ function event() {
 
 const onChanged = event()
 const onMessage = event()
+
+// Who registered each runtime.onMessage listener: the background script or the content
+// script (on dev/form.html). Messages are routed the way the browser would route them.
+let loadingOwner = 'page'
+const owners = new WeakMap()
+const addMessageListener = onMessage.addListener
+onMessage.addListener = (fn) => {
+  owners.set(fn, loadingOwner)
+  addMessageListener(fn)
+}
+const listenersOf = (owner) => onMessage.fns.filter((fn) => owners.get(fn) === owner)
+
+function deliver(fns, msg, sender) {
+  for (const fn of fns) {
+    let respond
+    const answered = new Promise((r) => (respond = r))
+    // The background script answers asynchronously (returns true to keep the channel open).
+    if (fn(msg, sender, respond) === true) return answered
+  }
+  return undefined
+}
+
+// dev/form.html marks itself as a page where the content script runs.
+const contentPage = document.documentElement.hasAttribute('data-sf-content-page')
 const clone = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)))
 
 const local = {
@@ -101,7 +125,7 @@ const local = {
 const site = params.get('site') || 'https://www.example.com/signup'
 const fieldsParam = params.get('fields') ?? '12'
 const fieldCount = fieldsParam === 'unknown' ? 0 : Number(fieldsParam) || 0
-const activeTab = { id: 1, url: site, active: true, title: 'Example' }
+const activeTab = { id: 1, url: document.documentElement.hasAttribute('data-sf-content-page') ? location.href : site, active: true, title: 'Example' }
 
 // Fake content-script answers for messages the background forwards to the tab.
 function contentResponse(msg) {
@@ -144,19 +168,26 @@ globalThis.chrome = {
     onInstalled: event(),
     async sendMessage(msg) {
       await ready
-      const sender = { tab: activeTab }
-      for (const fn of onMessage.fns) {
-        let respond
-        const answered = new Promise((r) => (respond = r))
-        const keepOpen = fn(msg, sender, respond)
-        if (keepOpen === true) return answered
-      }
-      return undefined
+      return deliver(listenersOf('background'), msg, { tab: activeTab })
     },
   },
   tabs: {
     query: async () => [activeTab],
     sendMessage: async (_tabId, msg) => {
+      const content = listenersOf('content')
+      if (content.length) {
+        // Responses from the real content script; resolve on the next tick like the browser.
+        let result
+        for (const fn of content) {
+          await new Promise((resolve) => {
+            const done = (v) => { result = v; resolve() }
+            const keepOpen = fn(msg, { id: 'dev-preview' }, done)
+            if (keepOpen !== true) setTimeout(resolve, 0)
+          })
+          if (result !== undefined) break
+        }
+        return result
+      }
       await new Promise((r) => setTimeout(r, 250)) // feel of a real round trip
       return contentResponse(msg)
     },
@@ -179,11 +210,21 @@ globalThis.chrome = {
 window.close = () => console.info('[SmartFill dev] window.close() ignored')
 
 // Load the real background script so pages hit the real message handlers.
+loadingOwner = 'background'
 import('../background.js')
-  .then(() => {
-    // Report the field count the way the content script would.
-    if (fieldsParam !== 'unknown') chrome.runtime.sendMessage({ type: 'FIELD_COUNT', count: fieldCount }).catch(() => {})
+  .then(async () => {
+    loadingOwner = 'page'
+    markReady()
+    if (contentPage) {
+      // Run the real content script on this page (it reports its own field count).
+      loadingOwner = 'content'
+      await import('../content/index.js')
+      loadingOwner = 'page'
+    } else if (fieldsParam !== 'unknown') {
+      // Report the field count the way the content script would.
+      chrome.runtime.sendMessage({ type: 'FIELD_COUNT', count: fieldCount }).catch(() => {})
+    }
   })
-  .finally(markReady)
+  .finally(() => markReady())
 
 console.info('[SmartFill dev] chrome.* mocked. Active tab:', site)

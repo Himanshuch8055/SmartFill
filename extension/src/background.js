@@ -291,6 +291,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: true })
         break
       }
+      // Content scripts can't open the options page themselves.
+      case 'OPEN_OPTIONS': {
+        chrome.runtime.openOptionsPage()
+        sendResponse({ ok: true })
+        break
+      }
       case 'ADD_RULE': {
         await addRule(message.rule)
         sendResponse({ ok: true })
