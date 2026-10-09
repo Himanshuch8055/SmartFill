@@ -1,10 +1,18 @@
 version: 2
 updates:
+  # npm: only minor and patch updates. Major upgrades (Vite, Tailwind, React, CRXJS…)
+  # change APIs or config, so they're planned and done by hand.
   - package-ecosystem: npm
     directory: /extension
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
+      # react and react-dom must always move together
+      react:
+        patterns: ["react", "react-dom"]
       dev-dependencies:
         dependency-type: development
     open-pull-requests-limit: 5
@@ -15,6 +23,9 @@ updates:
     directory: /website
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       all:
         patterns: ["*"]
@@ -22,6 +33,7 @@ updates:
     commit-message:
       prefix: chore(deps)
 
+  # GitHub Actions majors are usually safe and are covered by CI.
   - package-ecosystem: github-actions
     directory: /
     schedule:
