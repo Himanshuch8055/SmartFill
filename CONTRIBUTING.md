@@ -25,6 +25,14 @@ npm test
 
 Load `extension/dist` as an unpacked extension (`chrome://extensions` → Developer mode → Load unpacked). After rebuilding, click the reload icon on the extension card.
 
+### Working on the UI
+
+```bash
+npm run dev:ui   # http://localhost:5180/dev/index.html
+```
+
+This opens the popup, options and welcome pages side by side in a normal browser tab, with `chrome.*` mocked by sample data (`src/dev/chromeMock.js`). It has theme (system, light, dark) and scenario controls (active tab URL, number of fields). `/dev/gallery.html` shows every UI kit component. Build UI from `src/ui/` (tokens and components) instead of raw colors: use `bg-surface`, `text-fg-muted`, `border-line` and `bg-accent`, never `gray-*` or `blue-*`.
+
 Project structure (extension):
 
 | Path | Purpose |
