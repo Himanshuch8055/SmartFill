@@ -1,0 +1,12 @@
+<!-- GitHub-style sign-up -->
+<form>
+  <label for="email">Enter your email</label>
+  <input id="email" name="user[email]" type="email" autocomplete="off" data-expect="email">
+  <label for="password">Create a password</label>
+  <input id="password" name="user[password]" type="password" data-expect="none">
+  <label for="login">Enter a username</label>
+  <input id="login" name="user[login]" autocomplete="off" data-expect="username">
+  <label for="country">Your Country/Region</label>
+  <select id="country" name="country" data-expect="country"><option value="">Select</option><option value="IN">India</option></select>
+  <label><input type="checkbox" name="opt_in" data-expect="none"> Receive occasional product updates</label>
+</form>

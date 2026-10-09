@@ -24,14 +24,16 @@ export const FIELD_SPECS = [
   { key: 'city', ac: ['address-level2'], re: /\bcity\b|\btown\b/, not: /\bethnicity\b/ },
   { key: 'state', ac: ['address-level1'], re: /\bstate\b|\bprovince\b|\bregion\b|\bcounty\b/, not: /statement|\bcountry\b/ },
   { key: 'zip', ac: ['postal-code'], re: /\bzip\b|\bpostal\b|\bpost\s*code\b|\bpin\s*code\b|\bpincode\b/ },
-  { key: 'country', ac: ['country', 'country-name'], re: /\bcountry\b/, not: /\bcode\b/ },
+  // Exclude eligibility questions ("authorized to work in this country?")
+  { key: 'country', ac: ['country', 'country-name'], re: /\bcountry\b/, not: /\bcode\b|authori[sz]|eligib|legal|\bwork\b|visa|citizen|reside|relocat|\bborn\b/ },
   { key: 'linkedin', re: /\blinked\s*in\b/ },
   { key: 'github', re: /\bgit\s*hub\b/ },
   { key: 'portfolio', re: /\bportfolio\b/ },
   { key: 'website', ac: ['url'], re: /\bwebsite\b|\bhomepage\b|\bpersonal\s*(site|url)\b/, type: ['url'] },
   { key: 'bio', re: /\babout\s*(you|yourself|me)\b|\bbio\b|\bsummary\b|\bcover\s*letter\b/ },
-  // Generic "name" last so first/last/user/company names win.
-  { key: 'fullName', ac: ['name'], re: /\b(full\s*)?name\b|\byour\s*name\b/, not: /\b(first|last|middle|given|family|sur|user|company|business|file|account|card|nick|display|father|mother|spouse|organi[sz]ation|school|college|university|project|product)\b/ },
+  // Generic "name" last so first/last/user/company names win. Anchored to the start so
+  // "hotel name" / "project name" don't match; only unqualified or person-qualified names do.
+  { key: 'fullName', ac: ['name'], re: /^((full|your|legal|applicant|candidate|contact|billing|shipping|customer)\s*)*name\b/, not: /\b(first|last|middle|given|family|sur|user|company|business|file|account|card|nick|display|father|mother|spouse|organi[sz]ation|school|college|university|project|product)\b/ },
 ]
 
 const WEIGHTS = { ac: 100, label: 60, nameId: 40, placeholder: 30, type: 20 }
