@@ -18,12 +18,12 @@
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- Apply a saved theme before first paint to avoid a flash -->
+    <!-- Light by default; apply a saved dark choice before first paint to avoid a flash -->
     <script>
       try {
         // ?theme=light|dark previews a theme without saving it
         var t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('smartfill-theme')
-        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+        if (t === 'dark') document.documentElement.dataset.theme = 'dark' // light is the default
       } catch (e) {}
     </script>
   </head>

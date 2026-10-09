@@ -7,8 +7,9 @@ import InstallButtons from './InstallButtons'
 import { GITHUB_URL } from '../utils/links'
 
 const SECTIONS = [
-  { href: '#how', label: 'How it works' },
+  { href: '#demo', label: 'Demo' },
   { href: '#features', label: 'Features' },
+  { href: '#compare', label: 'Compare' },
   { href: '#privacy', label: 'Privacy' },
   { href: '#faq', label: 'FAQ' },
 ]

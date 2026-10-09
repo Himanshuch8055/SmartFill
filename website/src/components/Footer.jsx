@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import Logo from './Logo'
-import { GITHUB_URL, ISSUES_URL, REPORT_SITE_URL, CONTACT_EMAIL } from '../utils/links'
+import { GITHUB_URL, ISSUES_URL, REPORT_SITE_URL, CONTACT_EMAIL, SUPPORT_LINKS } from '../utils/links'
 
 function Col({ title, children }) {
   return (
@@ -33,6 +33,7 @@ export default function Footer() {
         <Col title="Open source">
           <li><a className={item} href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a></li>
           <li><a className={item} href={`${GITHUB_URL}/blob/main/CONTRIBUTING.md`} target="_blank" rel="noreferrer">Contributing</a></li>
+          {SUPPORT_LINKS.length > 0 && <li><a className={item} href="/#support">Support the project</a></li>}
         </Col>
         <Col title="Help">
           <li><a className={item} href={REPORT_SITE_URL} target="_blank" rel="noreferrer">Report a site</a></li>

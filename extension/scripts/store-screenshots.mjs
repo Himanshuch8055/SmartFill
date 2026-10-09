@@ -37,12 +37,12 @@ const SHOTS = [
   { id: '3', dir: STORE, file: '3-profiles.png', size: [1280, 800] },
   { id: '4', dir: STORE, file: '4-privacy.png', size: [1280, 800] },
   { id: 'tile', dir: STORE, file: 'promo-tile-440x280.png', size: [440, 280] },
-  { id: 'web-hero', dir: WEBSITE, file: 'hero-preview.png', size: [860, 720], transparent: true },
-  { id: 'web-popup', dir: WEBSITE, file: 'popup.png', size: [420, 380], transparent: true },
-  { id: 'web-settings', dir: WEBSITE, file: 'settings.png', size: [880, 720], transparent: true },
-  { id: 'web-hero-dark', shot: 'web-hero', theme: 'dark', dir: WEBSITE, file: 'hero-preview-dark.png', size: [860, 720], transparent: true },
-  { id: 'web-popup-dark', shot: 'web-popup', theme: 'dark', dir: WEBSITE, file: 'popup-dark.png', size: [420, 380], transparent: true },
-  { id: 'web-settings-dark', shot: 'web-settings', theme: 'dark', dir: WEBSITE, file: 'settings-dark.png', size: [880, 720], transparent: true },
+  { id: 'web-hero', dir: WEBSITE, file: 'hero-preview.png', size: [960, 820], transparent: true },
+  { id: 'web-popup', dir: WEBSITE, file: 'popup.png', size: [520, 480], transparent: true },
+  { id: 'web-settings', dir: WEBSITE, file: 'settings.png', size: [980, 820], transparent: true },
+  { id: 'web-hero-dark', shot: 'web-hero', theme: 'dark', dir: WEBSITE, file: 'hero-preview-dark.png', size: [960, 820], transparent: true },
+  { id: 'web-popup-dark', shot: 'web-popup', theme: 'dark', dir: WEBSITE, file: 'popup-dark.png', size: [520, 480], transparent: true },
+  { id: 'web-settings-dark', shot: 'web-settings', theme: 'dark', dir: WEBSITE, file: 'settings-dark.png', size: [980, 820], transparent: true },
   { id: 'og', dir: WEBSITE, file: 'og-image.png', size: [1200, 630] },
 ]
 

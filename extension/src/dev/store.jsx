@@ -144,7 +144,8 @@ function PromoTile() {
 function WebShot({ scene }) {
   document.body.style.background = 'transparent'
   return (
-    <div style={{ padding: 40, display: 'inline-block' }}>
+    // Padding larger than the shadow's blur, so the shadow fades out instead of being clipped.
+    <div style={{ padding: 90, display: 'inline-block' }}>
       {scene === 'popup' ? (
         <div style={{ width: 340, borderRadius: 12, overflow: 'hidden', boxShadow: THEME === 'dark' ? '0 18px 50px rgb(0 0 0 / .5), 0 0 0 1px rgb(255 255 255 / .1)' : '0 18px 50px rgb(30 27 75 / .22), 0 0 0 1px rgb(0 0 0 / .08)' }}>
           <Frame src="/popup.html?reset=1&site=https://careers.acme.com/apply&fields=11" width={340} height={300} />
