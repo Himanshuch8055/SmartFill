@@ -1,6 +1,6 @@
 /* Design tokens, kept in sync with extension/src/ui/tokens.js so the site and the extension
    look like one product. Colors are "R G B" triplets for Tailwind opacity support.
-   Theme: system by default; <html data-theme="light|dark"> forces one. */
+   Theme: light by default; <html data-theme="dark"> (set by the theme toggle) switches to dark. */
 :root {
   --sf-bg: 250 250 252;
   --sf-surface: 255 255 255;
@@ -20,29 +20,6 @@
   --sf-shadow-sm: 0 1px 2px rgb(16 16 24 / 0.06);
   --sf-shadow-lg: 0 16px 40px rgb(16 16 24 / 0.14), 0 2px 6px rgb(16 16 24 / 0.08);
   color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --sf-bg: 12 12 15;
-    --sf-surface: 24 24 28;
-    --sf-surface-2: 34 34 40;
-    --sf-line: 44 44 52;
-    --sf-line-strong: 63 63 72;
-    --sf-fg: 244 244 245;
-    --sf-fg-muted: 186 186 194;
-    --sf-fg-subtle: 139 139 150;
-    --sf-accent: 94 96 236;
-    --sf-accent-hover: 84 86 226;
-    --sf-accent-fg: 255 255 255;
-    --sf-accent-subtle: 35 33 80;
-    --sf-accent-text: 165 180 252;
-    --sf-success: 74 222 128;
-    --sf-ring: 129 140 248;
-    --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-    --sf-shadow-lg: 0 16px 40px rgb(0 0 0 / 0.55);
-    color-scheme: dark;
-  }
 }
 
 :root[data-theme='dark'] {

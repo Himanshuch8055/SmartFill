@@ -47,9 +47,5 @@ body {
 /* Product shots come in light and dark versions; show the one matching the site theme.
    The hidden one has display:none, so with loading="lazy" it isn't downloaded. */
 .img-dark { display: none; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .img-light { display: none; }
-  :root:not([data-theme='light']) .img-dark { display: block; }
-}
 :root[data-theme='dark'] .img-light { display: none; }
 :root[data-theme='dark'] .img-dark { display: block; }
