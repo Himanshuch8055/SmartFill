@@ -206,6 +206,9 @@ globalThis.chrome = {
   },
 }
 
+// Let dev tools and tests inspect SmartFill's on-page UI.
+globalThis.__SF_DEV_OPEN_SHADOW__ = true
+
 // The popup closes itself after starting a preview; keep the dev tab open instead.
 window.close = () => console.info('[SmartFill dev] window.close() ignored')
 

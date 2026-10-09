@@ -72,7 +72,8 @@ export function createLayer(id, extraCss = '') {
   host.id = id
   Object.assign(host.style, { position: 'fixed', inset: '0', pointerEvents: 'none', zIndex: '2147483647' })
   document.documentElement.appendChild(host)
-  const root = host.attachShadow({ mode: 'closed' })
+  // Closed so pages can't reach in; the dev preview opens it for testing.
+  const root = host.attachShadow({ mode: globalThis.__SF_DEV_OPEN_SHADOW__ ? 'open' : 'closed' })
   const style = document.createElement('style')
   style.textContent = themeCss('shadow') + BASE_CSS + extraCss
   root.appendChild(style)

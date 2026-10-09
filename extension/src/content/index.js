@@ -18,22 +18,15 @@ let siteBlocked = false
 let widget = null
 let lastCount = 0
 
+// One click fills the page (with preview if that setting is on). Results show as toasts.
 const widgetActions = {
   async fill() {
-    const res = await chrome.runtime.sendMessage({ type: 'AUTOFILL_ACTIVE' })
-    if (!res?.ok) return res?.error || 'Could not fill this page.'
-    return res.preview || res.filled ? '' : 'No fields to fill.'
-  },
-  async undo() {
-    return undoFill() ? '' : 'Nothing to undo.'
-  },
-  openSettings() {
-    chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' }).catch(() => {})
-  },
-  async turnOffHere() {
-    await chrome.runtime.sendMessage({ type: 'SET_SITE_BLOCKED', host: location.host, blocked: true })
-    showToast(`SmartFill is off on ${location.host}. Turn it back on from the toolbar button.`, { timeout: 6000 })
-    return ''
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'AUTOFILL_ACTIVE' })
+      if (!res?.ok) showToast(res?.error || "Couldn't fill this page.", { tone: 'danger' })
+    } catch {
+      showToast("Couldn't fill this page.", { tone: 'danger' })
+    }
   },
 }
 
