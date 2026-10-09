@@ -5,11 +5,11 @@ import { createLayer, el, LOGO_SVG } from './shadow'
 
 const CSS = `
   /* Only the visible parts take the mouse, so no invisible area covers the page. */
+  /* Slides out from behind the edge as the cursor approaches (see reveal() below). */
   .w {
     position: fixed; right: 0; pointer-events: none; display: flex; align-items: center;
-    transform: translateX(8px); transition: transform .18s ease-out;
+    transform: translateX(var(--sf-offset, 34px)); transition: transform .12s ease-out;
   }
-  .w:hover, .w:focus-within, .w.dragging { transform: translateX(0); }
   .fab {
     all: unset; cursor: pointer; position: relative; width: 44px; height: 40px; border-radius: 20px 0 0 20px;
     display: grid; place-items: center; padding-right: 4px; box-sizing: border-box;
@@ -55,6 +55,10 @@ const HEIGHT = 40
 const MARGIN = 12
 const CLOSE_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
 
+// Proximity reveal: how far the button hides behind the edge, and from how far away it starts to slide out.
+const TUCKED = 34 // px hidden at rest (of 44): a thin sliver stays visible
+const REACH = 180 // px from the button where it starts to come out
+
 // Vertical position as a fraction of the viewport, so it survives window resizes.
 function loadY() {
   try {
@@ -95,6 +99,44 @@ export function mountWidget(actions) {
   let busy = false
   let hidden = false
 
+  // Slide out in proportion to cursor distance; fully out while hovered, focused or dragged.
+  let engaged = false
+  let drag = null
+  let raf = 0
+  let lastPointer = null
+  const reveal = () => {
+    raf = 0
+    let offset = TUCKED
+    if (engaged) offset = 0
+    else if (lastPointer) {
+      const r = fab.getBoundingClientRect()
+      const dx = Math.max(0, r.left - lastPointer.x)
+      const dy = Math.max(0, Math.abs(lastPointer.y - (r.top + r.height / 2)) - r.height / 2)
+      const closeness = 1 - Math.min(1, Math.hypot(dx, dy) / REACH)
+      offset = Math.round(TUCKED * (1 - closeness * closeness))
+    }
+    wrap.style.setProperty('--sf-offset', `${offset}px`)
+  }
+  const onPointerMove = (e) => {
+    lastPointer = { x: e.clientX, y: e.clientY }
+    if (!raf) raf = requestAnimationFrame(reveal)
+  }
+  const onPointerLeavePage = () => {
+    lastPointer = null
+    if (!raf) raf = requestAnimationFrame(reveal)
+  }
+  document.addEventListener('pointermove', onPointerMove, { passive: true })
+  document.documentElement.addEventListener('pointerleave', onPointerLeavePage)
+  const setEngaged = (on) => {
+    engaged = on
+    reveal()
+  }
+  wrap.addEventListener('pointerenter', () => setEngaged(true))
+  wrap.addEventListener('pointerleave', () => setEngaged(wrap.matches(':focus-within') || !!drag))
+  wrap.addEventListener('focusin', () => setEngaged(true))
+  wrap.addEventListener('focusout', () => setEngaged(wrap.matches(':hover')))
+  reveal()
+
   const place = () => {
     const y = Math.min(Math.max(MARGIN, yFrac * innerHeight - HEIGHT / 2), innerHeight - HEIGHT - MARGIN)
     wrap.style.top = `${y}px`
@@ -103,7 +145,6 @@ export function mountWidget(actions) {
   window.addEventListener('resize', place)
 
   // Drag vertically along the edge; a press without movement is a click.
-  let drag = null
   fab.addEventListener('pointerdown', (e) => {
     drag = { y: e.clientY, moved: false }
     fab.setPointerCapture(e.pointerId)
@@ -157,6 +198,9 @@ export function mountWidget(actions) {
       layer.host.style.display = n && !hidden ? '' : 'none'
     },
     destroy() {
+      cancelAnimationFrame(raf)
+      document.removeEventListener('pointermove', onPointerMove)
+      document.documentElement.removeEventListener('pointerleave', onPointerLeavePage)
       window.removeEventListener('resize', place)
       layer.remove()
     },
