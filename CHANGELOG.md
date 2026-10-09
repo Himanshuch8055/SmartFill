@@ -5,11 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Removed
+- Field-count numbers on the toolbar icon and on the page button. The popup still shows how many fields were detected.
+
 ### Changed
 - Redesigned popup: shows the current site and how many fields were detected, a single **Fill N fields** button, and simple switches for preview and turning SmartFill on or off for the site. Clear messages for protected pages and first-run setup; fill results and Undo appear in place.
 - Redesigned settings page: profiles in a sidebar, edit any profile without making it active, changes save automatically, and separate Sites, Settings, Backup and About pages.
 - Restoring a backup now shows what the file contains before replacing your data.
 - New theme setting: System, Light or Dark.
+- Redesigned on-page button: a small button docked to the edge of pages with form fields (only in the main page, not inside embedded frames). It stays tucked behind the edge and slides out as your cursor gets closer. One click fills the page; hover shows how many fields it will fill, with an option to hide it. Drag it up or down along the edge.
+- Fill preview: labels sit inside the fields so the page's own labels stay visible. Click a label to skip that field.
+- The "remember this field" question now appears next to the field. Messages appear at the bottom centre.
+- New logo and toolbar icon: form lines finishing with a cursor dot on an indigo rounded square, with a pixel-aligned version for the 16px toolbar size.
 - New indigo look with light and dark themes.
 
 ## [1.0.0] - 2026-10-09

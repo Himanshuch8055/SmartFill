@@ -125,13 +125,6 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
   }
 })
 
-// ---------- Toolbar badge ----------
-
-function setBadge(tabId, count) {
-  chrome.action.setBadgeText({ tabId, text: count > 0 ? String(count) : '' }).catch(() => {})
-  chrome.action.setBadgeBackgroundColor({ tabId, color: '#4f46e5' }).catch(() => {})
-}
-
 // ---------- Per-tab field counts (for the popup) ----------
 // Kept in storage.session so they survive the service worker being suspended.
 
@@ -297,10 +290,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break
       }
       case 'FIELD_COUNT': {
-        if (sender.tab?.id) {
-          setBadge(sender.tab.id, message.count)
-          await setTabCount(sender.tab.id, message.count)
-        }
+        if (sender.tab?.id) await setTabCount(sender.tab.id, message.count)
         sendResponse({ ok: true })
         break
       }

@@ -3,7 +3,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import '../styles.css'
 import { initTheme, applyTheme, SegmentedControl, Button, Field, Input, Logo } from '../ui'
-import { Sun, Moon, Monitor, RotateCcw, Component } from 'lucide-react'
+import { Sun, Moon, Monitor, RotateCcw, Component, FileText } from 'lucide-react'
 
 initTheme()
 
@@ -60,6 +60,7 @@ function Hub() {
         <div className="flex gap-2 ml-auto">
           <Button icon={RotateCcw} onClick={reset}>Reset sample data</Button>
           <Button icon={Component} onClick={() => window.open('/dev/gallery.html', '_blank')}>UI kit</Button>
+          <Button icon={FileText} onClick={() => window.open('/dev/form.html', '_blank')}>Test form</Button>
         </div>
       </header>
 

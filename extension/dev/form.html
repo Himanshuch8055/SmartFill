@@ -1,0 +1,65 @@
+<!doctype html>
+<!-- Dev-only test page: a realistic form with the real SmartFill content script running
+     (chrome.* mocked by src/dev/chromeMock.js). Open via npm run dev:ui. -->
+<html lang="en" data-sf-content-page>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acme Careers · Apply</title>
+    <style>
+      body { margin: 0; font: 15px/1.5 Georgia, 'Times New Roman', serif; background: #f6f3ee; color: #222; }
+      header { background: #1f3a2e; color: #fff; padding: 18px 32px; font: 600 18px system-ui, sans-serif; }
+      main { max-width: 680px; margin: 32px auto; background: #fff; padding: 32px 40px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+      h1 { font-size: 26px; margin: 0 0 4px; }
+      p.lead { color: #666; margin: 0 0 24px; }
+      fieldset { border: 0; padding: 0; margin: 0 0 24px; }
+      legend { font: 600 13px system-ui, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: #1f3a2e; margin-bottom: 12px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      label { display: block; font: 14px system-ui, sans-serif; margin-bottom: 14px; }
+      input, select, textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px 10px; font: 15px system-ui, sans-serif; border: 1px solid #c9c4bb; border-radius: 3px; background: #fff; }
+      button.submit { background: #1f3a2e; color: #fff; border: 0; padding: 12px 22px; font: 600 15px system-ui, sans-serif; border-radius: 3px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <header>Acme Careers</header>
+    <main>
+      <h1>Senior Frontend Engineer</h1>
+      <p class="lead">Pune, India · Full-time</p>
+      <form onsubmit="event.preventDefault()">
+        <fieldset>
+          <legend>About you</legend>
+          <div class="row">
+            <label>First name <input name="first_name" autocomplete="given-name"></label>
+            <label>Last name <input name="last_name" autocomplete="family-name"></label>
+          </div>
+          <div class="row">
+            <label>Email address <input name="email" type="email"></label>
+            <label>Mobile number <input name="mobile" type="tel"></label>
+          </div>
+          <label>City <input name="city"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Experience</legend>
+          <div class="row">
+            <label>Current company <input name="current_company"></label>
+            <label>Job title <input name="job_title"></label>
+          </div>
+          <div class="row">
+            <label>LinkedIn profile <input name="linkedin_url"></label>
+            <label>GitHub URL <input name="github_url"></label>
+          </div>
+          <div class="row">
+            <label>Total years of experience <input name="experience"></label>
+            <label>Notice period <input name="notice"></label>
+          </div>
+          <label>How did you hear about us? <input name="source"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Account</legend>
+          <label>Password <input name="password" type="password"></label>
+        </fieldset>
+        <button class="submit" type="submit">Submit application</button>
+      </form>
+    </main>
+  </body>
+</html>

@@ -11,7 +11,7 @@ export default function Footer() {
         {/* Brand + CTA */}
         <div className="md:col-span-4">
           <div className="flex items-center gap-2">
-            <img src="/logo.svg" alt="SmartFill logo" className="h-7 w-7 rounded" />
+            <img src="/logo.svg" alt="SmartFill logo" className="h-7 w-7" />
             <span className="font-semibold text-slate-800 dark:text-slate-100">SmartFill</span>
           </div>
           <p className="mt-3 text-slate-600 dark:text-slate-400">
