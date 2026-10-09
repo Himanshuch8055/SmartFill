@@ -5,6 +5,7 @@ import Footer from './components/Footer'
 import Home from './pages/Home'
 import PrivacyPage from './pages/Privacy'
 import ChangelogPage from './pages/Changelog'
+import Goodbye from './pages/Goodbye'
 import NotFound from './pages/NotFound'
 
 const HOME_TITLE = 'SmartFill: fill any form in one click'
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/changelog" element={<ChangelogPage />} />
+          <Route path="/goodbye" element={<Goodbye />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
