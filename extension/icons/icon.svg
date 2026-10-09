@@ -1,6 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 32 32">
-  <!-- SmartFill mark: form lines being filled, ending in a dot. Same as the Logo component and on-page button. -->
-  <rect width="32" height="32" rx="8" fill="#4f46e5"/>
-  <path d="M9 11.5h14M9 16h9M9 20.5h11" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-  <circle cx="23" cy="20.5" r="2.4" fill="#ffffff"/>
+  <!-- SmartFill mark: lines of a form, the last one finishing with a cursor dot. -->
+  <defs>
+    <linearGradient id="sf-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+  </defs>
+  <path d="M9.5 0h13C29 0 32 3 32 9.5v13C32 29 29 32 22.5 32h-13C3 32 0 29 0 22.5v-13C0 3 3 0 9.5 0Z" fill="url(#sf-bg)"/>
+  <path d="M9 10.5h14M9 16h10M9 21.5h7" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+  <circle cx="21.6" cy="21.5" r="2.3" fill="#ffffff"/>
 </svg>

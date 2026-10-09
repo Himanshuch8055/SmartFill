@@ -40,8 +40,8 @@ export const BASE_CSS = `
   @media (prefers-reduced-motion: reduce) { .sf-enter { animation: none; } }
 `
 
-// Logo mark as an SVG string (matches the Logo component in src/ui).
-export const LOGO_SVG = `<svg width="18" height="18" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="rgb(var(--sf-accent))"/><path d="M9 11.5h14M9 16h9M9 20.5h11" stroke="white" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="20.5" r="2.4" fill="white"/></svg>`
+// Logo mark as an SVG string (same artwork as icons/icon.svg and the Logo component).
+export const LOGO_SVG = `<svg width="18" height="18" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="sf-logo-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#4338ca"/></linearGradient></defs><path d="M9.5 0h13C29 0 32 3 32 9.5v13C32 29 29 32 22.5 32h-13C3 32 0 29 0 22.5v-13C0 3 3 0 9.5 0Z" fill="url(#sf-logo-g)"/><path d="M9 10.5h14M9 16h10M9 21.5h7" stroke="white" stroke-width="2.6" stroke-linecap="round"/><circle cx="21.6" cy="21.5" r="2.3" fill="white"/></svg>`
 
 const hosts = new Set()
 let themePref = 'system'
