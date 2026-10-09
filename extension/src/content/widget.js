@@ -20,11 +20,6 @@ const CSS = `
   .fab:active { cursor: grabbing; }
   .fab svg { width: 20px; height: 20px; }
   .fab.busy svg { opacity: .5; }
-  .count {
-    position: absolute; top: -5px; left: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
-    background: rgb(var(--sf-accent)); color: rgb(var(--sf-accent-fg)); font: 600 10px/18px var(--sf-font-sans); text-align: center;
-    box-shadow: 0 0 0 2px rgb(var(--sf-surface));
-  }
   /* Hover label and hide button, revealed to the left of the button. The wrapper's right
      padding bridges the gap so moving the mouse from button to label keeps it open. */
   .tip-wrap { order: -1; padding-right: 6px; }
@@ -75,9 +70,6 @@ export function mountWidget(actions) {
   const fab = el('button', 'fab')
   fab.type = 'button'
   fab.innerHTML = LOGO_SVG
-  const badge = el('span', 'count')
-  badge.hidden = true
-  fab.appendChild(badge)
 
   const tip = el('div', 'tip')
   const tipText = el('button', 'tip-fill', 'Fill this page')
@@ -190,8 +182,6 @@ export function mountWidget(actions) {
 
   return {
     setCount(n) {
-      badge.hidden = !n
-      badge.textContent = n > 99 ? '99+' : String(n)
       const label = n ? `Fill ${n} field${n === 1 ? '' : 's'}` : 'Fill this page'
       tipText.textContent = label
       fab.setAttribute('aria-label', `SmartFill: ${label}`)

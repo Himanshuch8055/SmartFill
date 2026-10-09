@@ -335,7 +335,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return false
 })
 
-// ---------- Toolbar badge: report how many fillable fields the page has ----------
+// ---------- Field count: shown in the popup, and decides whether the page button appears ----------
 
 function reportFieldCount() {
   try {
