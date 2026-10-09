@@ -1,0 +1,39 @@
+name: Site not filling correctly
+description: A website where SmartFill misses fields, fills the wrong value, or fills something it shouldn't
+labels: [site-compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports directly improve detection for everyone. Please **do not include your real profile values**.
+  - type: input
+    id: url
+    attributes:
+      label: Page URL
+      description: The form's address. If it's behind a login, describe the site instead.
+      placeholder: https://example.com/signup
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: Which fields went wrong?
+      description: For each field, give its visible label, what SmartFill did, and what it should have done.
+      placeholder: |
+        - "Mobile number": left empty, should be Phone
+        - "Company name": got my full name, should be Company
+    validations:
+      required: true
+  - type: textarea
+    id: html
+    attributes:
+      label: Field HTML (optional, very helpful)
+      description: Right-click the field → Inspect, then copy the input element and its label. Remove any personal data.
+      render: html
+  - type: input
+    id: version
+    attributes:
+      label: SmartFill version and browser
+      placeholder: 1.0.0 on Chrome 130
+    validations:
+      required: true

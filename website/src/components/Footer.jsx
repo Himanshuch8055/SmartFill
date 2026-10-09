@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { GITHUB_URL } from '../utils/links'
 
 export default function Footer() {
   const year = new Date().getFullYear()
@@ -43,6 +44,7 @@ export default function Footer() {
             <ul className="mt-3 space-y-2 text-slate-600 dark:text-slate-400">
               <li><Link className="hover:text-slate-900 dark:hover:text-white" to="/privacy">Privacy</Link></li>
               <li><Link className="hover:text-slate-900 dark:hover:text-white" to="/terms">Terms</Link></li>
+              <li><a className="hover:text-slate-900 dark:hover:text-white" href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub (open source)</a></li>
               <li><Link className="hover:text-slate-900 dark:hover:text-white" to="/contact">Contact</Link></li>
             </ul>
           </div>
@@ -80,6 +82,7 @@ export default function Footer() {
           <div className="flex items-center gap-4">
             <Link className="hover:text-slate-900 dark:hover:text-white" to="/privacy">Privacy</Link>
             <Link className="hover:text-slate-900 dark:hover:text-white" to="/terms">Terms</Link>
+            <a className="hover:text-slate-900 dark:hover:text-white" href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
             <Link className="hover:text-slate-900 dark:hover:text-white" to="/status">Status</Link>
           </div>
         </div>
