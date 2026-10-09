@@ -1,6 +1,8 @@
-# SmartFill – Source Build Guide (for AMO Review)
+# SmartFill extension
 
-This README provides everything needed to reproduce the exact Firefox add-on build from source.
+The SmartFill browser extension. For features, install instructions and contributing, see the [main README](../README.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+The rest of this file is the **source build guide for Firefox Add-ons (AMO) reviewers**: everything needed to reproduce the exact add-on build from source.
 
 ## Overview
 - Tech stack: Vite + React, MV3 background (post-processed for AMO).

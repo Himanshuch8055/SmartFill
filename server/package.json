@@ -16,5 +16,16 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
+  },
+  "license": "MIT",
+  "author": "Himanshu Chauhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Himanshuch8055/SmartFill.git",
+    "directory": "server"
+  },
+  "homepage": "https://github.com/Himanshuch8055/SmartFill#readme",
+  "bugs": {
+    "url": "https://github.com/Himanshuch8055/SmartFill/issues"
   }
 }
