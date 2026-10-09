@@ -1,64 +1,56 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import React from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { Github } from 'lucide-react'
+import Logo from './Logo'
 import ThemeToggle from './ThemeToggle'
+import InstallButtons from './InstallButtons'
+import { GITHUB_URL } from '../utils/links'
+
+const SECTIONS = [
+  { href: '#how', label: 'How it works' },
+  { href: '#features', label: 'Features' },
+  { href: '#privacy', label: 'Privacy' },
+  { href: '#faq', label: 'FAQ' },
+]
 
 export default function Navbar() {
-  const [open, setOpen] = useState(false)
-
+  const { pathname } = useLocation()
+  const onHome = pathname === '/'
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/70 dark:border-white/10 backdrop-blur supports-backdrop-blur:bg-white/60 dark:supports-backdrop-blur:bg-[#0b1220]/60">
-      <div className="container-app h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <img src="/logo.svg" alt="SmartFill logo" className="h-7 w-7" />
-          <span className="font-bold tracking-tight">SmartFill</span>
+    <header className="sticky top-0 z-40 border-b border-line/70 bg-bg/80 backdrop-blur supports-[backdrop-filter]:bg-bg/70">
+      <div className="container-site h-16 flex items-center gap-6">
+        <Link to="/" className="flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus/60" aria-label="SmartFill home">
+          <Logo size={28} />
+          <span className="text-[17px] font-semibold tracking-[-0.01em]">SmartFill</span>
         </Link>
 
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-5 text-sm">
-          <Link to="/features" className="hover:text-slate-900 dark:hover:text-white text-slate-600 dark:text-slate-300">Features</Link>
-          <Link to="/how" className="hover:text-slate-900 dark:hover:text-white text-slate-600 dark:text-slate-300">How it works</Link>
-          <Link to="/privacy" className="hover:text-slate-900 dark:hover:text-white text-slate-600 dark:text-slate-300">Privacy</Link>
-          <Link to="/faq" className="hover:text-slate-900 dark:hover:text-white text-slate-600 dark:text-slate-300">FAQ</Link>
-          <ThemeToggle />
-          <Link to="/install" className="btn btn-primary">Get the Extension</Link>
+        <nav aria-label="Sections" className="hidden md:flex items-center gap-1 text-sm">
+          {SECTIONS.map((s) => (
+            <a
+              key={s.href}
+              href={onHome ? s.href : `/${s.href}`}
+              className="px-3 py-2 rounded-lg text-fg-muted hover:text-fg outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
+            >
+              {s.label}
+            </a>
+          ))}
         </nav>
 
-        {/* Mobile actions */}
-        <div className="md:hidden flex items-center gap-2">
-          <ThemeToggle />
-          <button
-            className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-slate-200 dark:border-[#20304d] hover:bg-slate-100 dark:hover:bg-[#131c31]"
-            aria-label="Toggle menu"
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
+        <div className="ml-auto flex items-center gap-1">
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="SmartFill on GitHub"
+            title="SmartFill on GitHub"
+            className="h-9 w-9 grid place-items-center rounded-lg text-fg-muted hover:text-fg hover:bg-surface-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
           >
-            {open ? (
-              // Close icon
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.3 19.71 2.89 18.3 9.18 12 2.89 5.71 4.3 4.29l6.29 6.3 6.3-6.3z" />
-              </svg>
-            ) : (
-              // Menu icon
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
-              </svg>
-            )}
-          </button>
+            <Github size={18} aria-hidden />
+          </a>
+          <ThemeToggle />
+          <InstallButtons size="sm" className="ml-2 hidden sm:flex" />
         </div>
       </div>
-
-      {/* Mobile menu */}
-      {open && (
-        <div className="md:hidden border-t border-slate-200 dark:border-white/10">
-          <nav className="container-app py-3 flex flex-col gap-2 text-sm">
-            <Link onClick={() => setOpen(false)} to="/features" className="py-2 text-slate-700 dark:text-slate-300">Features</Link>
-            <Link onClick={() => setOpen(false)} to="/how" className="py-2 text-slate-700 dark:text-slate-300">How it works</Link>
-            <Link onClick={() => setOpen(false)} to="/privacy" className="py-2 text-slate-700 dark:text-slate-300">Privacy</Link>
-            <Link onClick={() => setOpen(false)} to="/faq" className="py-2 text-slate-700 dark:text-slate-300">FAQ</Link>
-            <Link onClick={() => setOpen(false)} to="/install" className="btn btn-primary mt-1">Get the Extension</Link>
-          </nav>
-        </div>
-      )}
     </header>
   )
 }

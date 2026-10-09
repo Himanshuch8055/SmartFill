@@ -1,34 +1,35 @@
-# SmartFill Website (React + Vite + Tailwind)
+# SmartFill website
 
-Production-ready, responsive marketing site for the SmartFill extension.
+The marketing site for the SmartFill extension: a landing page, the privacy policy, and a changelog generated from the repository's `CHANGELOG.md`. React, Vite and Tailwind, using the same design tokens as the extension (`src/tokens.css`).
 
-## Stack
-- React 18 + Vite
-- Tailwind CSS (PostCSS + Autoprefixer)
+## Develop
 
-## Scripts
 ```bash
-# from website/
-npm install
-npm run dev       # http://localhost:5173
+cd website
+npm ci
+npm run dev       # http://localhost:5173  (?theme=light or ?theme=dark to preview a theme)
 npm run build     # outputs to dist/
-npm run preview   # preview the build at http://localhost:5174
 ```
 
-## Edit install links
-Update the store links in `src/utils/links.js`:
+## Product images
 
-```js
-export const CHROME_URL = 'https://chrome.google.com/webstore/detail/<your-id>'
-export const FIREFOX_URL = 'https://addons.mozilla.org/firefox/addon/<your-slug>'
+The images in `public/images/` are generated from the real extension screens, in light and dark versions:
+
+```bash
+cd extension
+npm run dev:ui                    # in one terminal
+npm run store:screenshots -- web-hero web-popup web-settings web-hero-dark web-popup-dark web-settings-dark og
 ```
 
-## Deploy
-- Netlify: Drag-drop `dist/`, or connect repo (build: `npm ci && npm run build`, publish: `website/dist`).
-- Vercel: Project root: `website/`, framework: Vite.
-- GitHub Pages: `npm run build` then publish `website/dist` as Pages artifact.
+## Deploy on Vercel
 
-## Structure
-- `index.html` – Vite HTML shell
-- `src/` – React app (components, utils)
-- `tailwind.config.js`, `postcss.config.js` – Styling config
+1. In Vercel, choose **Add New → Project** and import `Himanshuch8055/SmartFill`.
+2. Set **Root Directory** to `website`. Vercel detects Vite: build command `npm run build`, output `dist`.
+3. Deploy. `vercel.json` sends every route (`/privacy`, `/changelog`) to the app and sets caching and security headers.
+
+After the first deploy:
+
+- Put the site URL in `extension/src/lib/links.js` (`SITE_URL`). The extension links to `SITE_URL/privacy`.
+- Use `<site>/privacy` as the privacy policy URL in the Chrome Web Store and Firefox Add-ons dashboards.
+- Make the `og:image` URL in `index.html` absolute (`<site>/images/og-image.png`) so link previews work everywhere.
+- When the store listings are live, set `CHROME_URL` and `FIREFOX_URL` in `src/utils/links.js`. The install buttons switch from "Install from GitHub" to the store buttons automatically.

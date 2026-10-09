@@ -1,5 +1,7 @@
-// Store art composer (dev only): /dev/store.html?shot=1..4 renders a 1280x800 store
-// screenshot from the real extension screens; ?shot=tile renders the 440x280 promo tile.
+// Store and website art composer (dev only), rendered from the real extension screens:
+//   ?shot=1..4      1280x800 store screenshots      ?shot=tile  440x280 promo tile
+//   ?shot=web-*     bare product shots on a transparent background for the website
+//   ?shot=og        1200x630 social preview image
 // Captured by scripts/store-screenshots.mjs.
 import React from 'react'
 import { createRoot } from 'react-dom/client'
@@ -15,7 +17,10 @@ document.documentElement.dataset.theme = 'light'
 document.documentElement.dataset.sfUi = ''
 const FONT = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif'
 
-const shot = new URLSearchParams(location.search).get('shot') || '1'
+const params = new URLSearchParams(location.search)
+const shot = params.get('shot') || '1'
+// Website shots also come in a dark version (?theme=dark); store art is always light.
+const THEME = params.get('theme') === 'dark' ? 'dark' : 'light'
 
 const SHOTS = {
   1: { title: 'Fill any form in one click', text: 'SmartFill finds the fields and shows you exactly what it will fill. Skip anything, then confirm.', scene: 'preview' },
@@ -36,7 +41,9 @@ function Frame({ src, width, height, onReady, className, style }) {
       style={{ border: 0, display: 'block', ...style }}
       onLoad={(e) => {
         const win = e.currentTarget.contentWindow
-        win.document.documentElement.dataset.theme = 'light'
+        win.document.documentElement.dataset.theme = THEME
+        // Pages re-apply the stored theme on load; store the shot's theme so it sticks.
+        win.chrome?.storage?.local.set({ theme: THEME })
         if (onReady) setTimeout(() => onReady(win), 900)
       }}
     />
@@ -44,12 +51,13 @@ function Frame({ src, width, height, onReady, className, style }) {
 }
 
 function BrowserWindow({ url, children, width = 780, height = 600 }) {
+  const dark = THEME === 'dark'
   const dot = (c) => <span style={{ width: 12, height: 12, borderRadius: 6, background: c, display: 'inline-block' }} />
   return (
-    <div style={{ width, borderRadius: 12, overflow: 'hidden', background: '#fff', boxShadow: '0 30px 80px rgb(30 27 75 / .28), 0 4px 14px rgb(30 27 75 / .12), 0 0 0 1px rgb(0 0 0 / .05)' }}>
-      <div style={{ height: 40, background: '#f1f3f4', display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', borderBottom: '1px solid rgb(0 0 0 / .06)' }}>
+    <div style={{ width, borderRadius: 12, overflow: 'hidden', background: dark ? '#202124' : '#fff', boxShadow: dark ? '0 30px 80px rgb(0 0 0 / .5), 0 0 0 1px rgb(255 255 255 / .08)' : '0 30px 80px rgb(30 27 75 / .28), 0 4px 14px rgb(30 27 75 / .12), 0 0 0 1px rgb(0 0 0 / .05)' }}>
+      <div style={{ height: 40, background: dark ? '#35363a' : '#f1f3f4', display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', borderBottom: dark ? '1px solid rgb(255 255 255 / .06)' : '1px solid rgb(0 0 0 / .06)' }}>
         {dot('#ff5f57')}{dot('#febc2e')}{dot('#28c840')}
-        <span style={{ marginLeft: 16, flex: 1, height: 24, borderRadius: 6, background: '#fff', color: '#5f6368', font: `12px ${FONT}`, display: 'flex', alignItems: 'center', padding: '0 12px' }}>{url}</span>
+        <span style={{ marginLeft: 16, flex: 1, height: 24, borderRadius: 6, background: dark ? '#202124' : '#fff', color: dark ? '#bdc1c6' : '#5f6368', font: `12px ${FONT}`, display: 'flex', alignItems: 'center', padding: '0 12px' }}>{url}</span>
         <Logo size={18} />
       </div>
       <div style={{ position: 'relative', height }}>{children}</div>
@@ -131,4 +139,43 @@ function PromoTile() {
   )
 }
 
-createRoot(document.getElementById('root')).render(shot === 'tile' ? <PromoTile /> : <Screenshot {...SHOTS[shot]} />)
+// Website product shots: just the product, on a transparent background (captured with
+// Chrome's transparent default background), with room around it for the shadow.
+function WebShot({ scene }) {
+  document.body.style.background = 'transparent'
+  return (
+    <div style={{ padding: 40, display: 'inline-block' }}>
+      {scene === 'popup' ? (
+        <div style={{ width: 340, borderRadius: 12, overflow: 'hidden', boxShadow: THEME === 'dark' ? '0 18px 50px rgb(0 0 0 / .5), 0 0 0 1px rgb(255 255 255 / .1)' : '0 18px 50px rgb(30 27 75 / .22), 0 0 0 1px rgb(0 0 0 / .08)' }}>
+          <Frame src="/popup.html?reset=1&site=https://careers.acme.com/apply&fields=11" width={340} height={300} />
+        </div>
+      ) : (
+        <Scene name={scene} />
+      )}
+    </div>
+  )
+}
+
+function OgImage() {
+  return (
+    <div style={{ width: 1200, height: 630, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 48, padding: '0 64px', boxSizing: 'border-box', background: 'linear-gradient(135deg, #f5f5ff 0%, #e6e5ff 100%)', fontFamily: FONT }}>
+      <div style={{ width: 400, flexShrink: 0, color: '#1e1b4b' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Logo size={44} />
+          <span style={{ fontSize: 26, fontWeight: 650 }}>SmartFill</span>
+        </div>
+        <h1 style={{ margin: '28px 0 0', fontSize: 52, lineHeight: 1.05, fontWeight: 650, letterSpacing: '-0.03em' }}>Fill any form in one click.</h1>
+        <p style={{ margin: '18px 0 0', fontSize: 22, lineHeight: 1.45, color: '#4a4870' }}>Private, accurate, free and open source.</p>
+      </div>
+      <div style={{ transform: 'scale(.82)', transformOrigin: 'left center' }}>
+        <Scene name="preview" />
+      </div>
+    </div>
+  )
+}
+
+const WEB = { 'web-hero': 'preview', 'web-popup': 'popup', 'web-settings': 'settings' }
+
+createRoot(document.getElementById('root')).render(
+  shot === 'tile' ? <PromoTile /> : shot === 'og' ? <OgImage /> : WEB[shot] ? <WebShot scene={WEB[shot]} /> : <Screenshot {...SHOTS[shot]} />
+)
