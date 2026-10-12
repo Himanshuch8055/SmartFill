@@ -254,7 +254,7 @@ function runFill(map, profile, { continuation = false } = {}) {
       timeout: 10000,
     })
     watchCorrections(map, profile)
-    chrome.runtime.sendMessage({ type: 'FILL_DONE', filled }).catch(() => {})
+    chrome.runtime.sendMessage({ type: 'FILL_DONE', filled, continuation }).catch(() => {})
     startFillSession()
   } else if (isTop && !continuation) {
     showToast('No fields to fill on this page.')

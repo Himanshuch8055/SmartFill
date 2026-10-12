@@ -1,5 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import { filledAgo } from '../lib/time'
 import '../styles.css'
 import { Settings, ChevronDown, Check } from 'lucide-react'
 import { initTheme, IconButton, Switch, DropdownMenu, cn } from '../ui'
@@ -27,7 +28,7 @@ function usePopupState() {
       const [tab, prof, local] = await Promise.all([
         send({ type: 'GET_TAB_STATE' }),
         send({ type: 'GET_PROFILES' }),
-        chrome.storage.local.get(['popupProfileIds', 'fillMode', 'fillCount', 'ratingPromptDone']),
+        chrome.storage.local.get(['popupProfileIds', 'fillMode', 'fillCount', 'ratingPromptDone', 'fillHistory']),
       ])
       setState({
         loading: false,
@@ -40,6 +41,7 @@ function usePopupState() {
         activeId: prof?.activeProfileId || '',
         popupProfileIds: Array.isArray(local.popupProfileIds) ? local.popupProfileIds : [],
         preview: local.fillMode !== 'instant',
+        lastFilledAt: (Array.isArray(local.fillHistory) ? local.fillHistory : []).find((e) => e.host === tab?.host)?.at || 0,
         showRating: !local.ratingPromptDone && (local.fillCount || 0) >= RATING_PROMPT_AFTER,
       })
     } catch (e) {
@@ -258,6 +260,7 @@ function Popup() {
                 </>
               )}
             </p>
+            {state.lastFilledAt > 0 && <p className="text-[12px] mt-0.5 text-fg-subtle">{filledAgo(state.lastFilledAt)}</p>}
 
             <button
               type="button"
