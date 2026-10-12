@@ -64,3 +64,26 @@ describe('resume inputs', () => {
     expect(el.value).toBe('')
   })
 })
+
+describe('multi-page forms: empty targets', () => {
+  it('only treats untouched fields as empty', async () => {
+    const { isEmptyTarget } = await import('../src/lib/detectFields.js')
+    mount(`
+      <input id="a"><input id="b" value="typed">
+      <select id="s"><option value="">Choose</option><option value="x">X</option></select>
+      <select id="s2"><option value="x" selected>X</option></select>
+      <input type="checkbox" id="c">
+      <label><input type="radio" name="r" value="1">1</label><label><input type="radio" name="r" value="2" checked>2</label>
+      <label><input type="radio" name="q" value="1">1</label>
+      <textarea id="t">  </textarea>`)
+    const $ = (id) => document.getElementById(id)
+    expect(isEmptyTarget($('a'))).toBe(true)
+    expect(isEmptyTarget($('b'))).toBe(false)
+    expect(isEmptyTarget($('s'))).toBe(true)
+    expect(isEmptyTarget($('s2'))).toBe(false)
+    expect(isEmptyTarget($('c'))).toBe(false) // unchecked is a valid answer
+    expect(isEmptyTarget([...document.querySelectorAll('[name=r]')])).toBe(false)
+    expect(isEmptyTarget([...document.querySelectorAll('[name=q]')])).toBe(true)
+    expect(isEmptyTarget($('t'))).toBe(true)
+  })
+})

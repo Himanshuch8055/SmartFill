@@ -485,3 +485,19 @@ export function attachFile(input, file) {
     return false
   }
 }
+
+// ---------- Multi-page forms ----------
+
+// True when a fill target hasn't been filled in yet (used on later steps of a form, where
+// SmartFill must never overwrite what the user already entered). Checkboxes count as not
+// empty: unchecked is a valid answer.
+export function isEmptyTarget(target) {
+  if (Array.isArray(target)) return !target.some((r) => r.checked) // radio group
+  const el = target
+  if (!el) return false
+  if (el.tagName === 'INPUT' && el.type === 'file') return !el.files?.length
+  if (el.tagName === 'INPUT' && el.type === 'checkbox') return false
+  if (el.tagName === 'SELECT') return !el.value
+  if (el.isContentEditable) return !el.textContent.trim()
+  return !String(el.value ?? '').trim()
+}

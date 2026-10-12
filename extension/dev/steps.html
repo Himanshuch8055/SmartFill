@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Dev-only multi-step application form. Step 1 -> 2 swaps the form on the same page (like a
+     single-page app); step 2 -> 3 loads a new page (dev/steps-final.html), like Workday. -->
+<html lang="en" data-sf-content-page>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acme Careers · Apply (step 1 of 3)</title>
+    <style>
+      body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: #f6f3ee; color: #222; }
+      header { background: #1f3a2e; color: #fff; padding: 18px 32px; font-weight: 600; }
+      main { max-width: 600px; margin: 32px auto; background: #fff; padding: 28px 36px; border-radius: 4px; }
+      .steps { color: #666; font-size: 13px; margin-bottom: 16px; }
+      label { display: block; margin-bottom: 14px; }
+      input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 9px 10px; font: inherit; border: 1px solid #c9c4bb; border-radius: 3px; }
+      button { background: #1f3a2e; color: #fff; border: 0; padding: 10px 20px; font: 600 15px system-ui; border-radius: 3px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <header>Acme Careers</header>
+    <main id="app"></main>
+    <script>
+      const app = document.getElementById('app')
+      function step1() {
+        app.innerHTML = `
+          <p class="steps">Step 1 of 3 · About you</p>
+          <form id="f">
+            <label>First name <input name="first_name"></label>
+            <label>Last name <input name="last_name"></label>
+            <label>Email address <input name="email" type="email"></label>
+            <button type="submit" id="next">Next</button>
+          </form>`
+        document.getElementById('f').onsubmit = (e) => { e.preventDefault(); step2() }
+      }
+      function step2() {
+        document.title = 'Acme Careers · Apply (step 2 of 3)'
+        app.innerHTML = `
+          <p class="steps">Step 2 of 3 · Experience</p>
+          <form id="f">
+            <label>Current company <input name="company"></label>
+            <label>Job title <input name="job_title" value="Typed by the user"></label>
+            <label>LinkedIn profile <input name="linkedin"></label>
+            <button type="submit" id="next">Next</button>
+          </form>`
+        document.getElementById('f').onsubmit = (e) => { e.preventDefault(); location.href = '/dev/steps-final.html' }
+      }
+      step1()
+    </script>
+  </body>
+</html>

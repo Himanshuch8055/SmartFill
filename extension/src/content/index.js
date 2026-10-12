@@ -1,5 +1,5 @@
 // Content script
-import { findFillableInputs, fillFields, deriveProfile, snapshot, restore, findAnswerTargets, findResumeInputs } from '../lib/detectFields'
+import { findFillableInputs, fillFields, deriveProfile, snapshot, restore, findAnswerTargets, findResumeInputs, isEmptyTarget } from '../lib/detectFields'
 import { PROFILE_FIELDS } from '../lib/profileFields'
 import { showPreview, showToast, showFieldPrompt } from './preview'
 import { mountWidget } from './widget'
@@ -214,18 +214,69 @@ function countTargets(map) {
 
 let lastSnapshot = null
 
-function runFill(map, profile) {
+function runFill(map, profile, { continuation = false } = {}) {
   const snap = snapshot(map)
   const { filled } = fillFields(map, profile)
   if (filled) {
     lastSnapshot = snap
-    showToast(`Filled ${plural(filled, 'field')}.`, { actionLabel: 'Undo', onAction: undoFill, timeout: 10000 })
+    showToast(continuation ? `Filled ${plural(filled, 'more field')}.` : `Filled ${plural(filled, 'field')}.`, {
+      actionLabel: 'Undo',
+      onAction: undoFill,
+      timeout: 10000,
+    })
     watchCorrections(map, profile)
     chrome.runtime.sendMessage({ type: 'FILL_DONE', filled }).catch(() => {})
-  } else if (isTop) {
+    startFillSession()
+  } else if (isTop && !continuation) {
     showToast('No fields to fill on this page.')
   }
   return filled
+}
+
+// ---------- Multi-page forms ----------
+// After a fill, the tab stays in a "fill session" for a while. When the next step of the form
+// appears (new fields on this page, or a new page on the same site), SmartFill continues:
+// it previews or fills only the fields that are still empty.
+
+let sessionActive = false
+let continuing = false
+const processed = new WeakSet() // targets already filled or offered on this page
+
+function startFillSession() {
+  if (!isTop) return
+  sessionActive = true
+  chrome.runtime.sendMessage({ type: 'START_FILL_SESSION' }).catch(() => {})
+}
+
+function endFillSession() {
+  sessionActive = false
+  chrome.runtime.sendMessage({ type: 'END_FILL_SESSION' }).catch(() => {})
+}
+
+// Keep only targets that are still empty and haven't been handled on this page.
+function pendingOnly(map) {
+  const out = {}
+  for (const [key, targets] of Object.entries(map)) {
+    const rest = targets.filter((t) => !processed.has(t) && isEmptyTarget(t))
+    if (rest.length) out[key] = rest
+  }
+  return out
+}
+
+function markProcessed(map) {
+  for (const targets of Object.values(map)) for (const t of targets) processed.add(t)
+}
+
+async function maybeContinue(count) {
+  if (!isTop || !sessionActive || continuing || !count || siteBlocked) return
+  continuing = true
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'CONTINUE_FILL' })
+    if (res?.inactive) sessionActive = false
+  } catch {
+  } finally {
+    continuing = false
+  }
 }
 
 function undoFill() {
@@ -305,25 +356,37 @@ document.addEventListener('contextmenu', (e) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg?.type) {
     case 'AUTOFILL': {
-      const { map, profile } = buildFillPlan(msg.profile || {}, msg.rules || [], msg.resume || null)
+      const continuation = !!msg.continuation
+      const plan = buildFillPlan(msg.profile || {}, msg.rules || [], msg.resume || null)
+      const profile = plan.profile
+      // On later steps of a form, never touch fields the user already filled in.
+      const map = continuation ? pendingOnly(plan.map) : plan.map
       const count = countTargets(map)
       // Sub-frames without fields stay silent so the frame that has fields answers.
       if (!isTop && !count) return false
+      if (continuation && !count) {
+        sendResponse({ ok: true, filled: 0, continuation: true })
+        return false
+      }
+      markProcessed(map)
       if (msg.preview && count) {
         const entries = previewEntries(map, profile)
         showPreview(entries, {
+          hint: continuation ? 'Next step · Click a label to skip it' : undefined,
           // Fill only the fields the user didn't skip in the preview.
           onConfirm: (skipped) => {
             const chosen = {}
             entries.forEach((e, i) => {
               if (!skipped.has(i)) (chosen[e.key] ||= []).push(e.target)
             })
-            runFill(chosen, profile)
+            runFill(chosen, profile, { continuation })
           },
+          // Cancelling a preview means "stop helping with this form".
+          onCancel: () => endFillSession(),
         })
         sendResponse({ ok: true, preview: true, count })
       } else {
-        sendResponse({ ok: true, filled: runFill(map, profile) })
+        sendResponse({ ok: true, filled: runFill(map, profile, { continuation }) })
       }
       return false
     }
@@ -389,10 +452,20 @@ async function reportFieldCount() {
     lastCount = count
     widget?.setCount(count)
     chrome.runtime.sendMessage({ type: 'FIELD_COUNT', count }).catch(() => {})
+    maybeContinue(count)
   } catch {}
 }
 
 if (isTop) {
+  // A fill session may be running from the previous step of this form (a new page on the same site).
+  chrome.runtime
+    .sendMessage({ type: 'GET_FILL_SESSION' })
+    .then((res) => {
+      sessionActive = !!res?.active
+      if (sessionActive) reportFieldCount()
+    })
+    .catch(() => {})
+
   let timer = 0
   const schedule = () => {
     clearTimeout(timer)

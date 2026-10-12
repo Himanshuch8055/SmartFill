@@ -67,7 +67,7 @@ export function clearPreview() {
 }
 
 // entries: [{ el, label, value }]. onConfirm receives the Set of skipped entry indexes.
-export function showPreview(entries, { onConfirm, onCancel }) {
+export function showPreview(entries, { onConfirm, onCancel, hint = 'Click a label to skip it' }) {
   clearPreview()
   const { root } = getLayer()
   const nodes = []
@@ -105,11 +105,11 @@ export function showPreview(entries, { onConfirm, onCancel }) {
   })
 
   const bar = el('div', 'sf sf-card sf-enter bar')
-  const hint = el('span', 'hint', 'Click a label to skip it')
+  const hintEl = el('span', 'hint', hint)
   const fill = el('button', 'sf-btn sf-primary')
   const cancel = el('button', 'sf-btn sf-secondary', 'Cancel')
   fill.type = cancel.type = 'button'
-  bar.append(hint, cancel, fill)
+  bar.append(hintEl, cancel, fill)
   root.appendChild(bar)
   nodes.push(bar)
 

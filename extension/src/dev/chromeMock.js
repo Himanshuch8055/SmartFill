@@ -156,16 +156,20 @@ function contentResponse(msg) {
   }
 }
 
-// Non-persistent area (chrome.storage.session)
+// chrome.storage.session: survives page loads in this browser tab (like the real one survives
+// navigations), backed by sessionStorage.
 function memoryArea() {
-  const mem = {}
+  const KEY = 'sf-dev-session'
+  const read = () => { try { return JSON.parse(sessionStorage.getItem(KEY) || '{}') } catch { return {} } }
+  const write = (m) => { try { sessionStorage.setItem(KEY, JSON.stringify(m)) } catch {} }
   return {
     async get(keys) {
-      if (keys == null) return { ...mem }
+      const mem = read()
+      if (keys == null) return mem
       return Object.fromEntries([].concat(keys).filter((k) => k in mem).map((k) => [k, mem[k]]))
     },
-    async set(obj) { Object.assign(mem, obj) },
-    async remove(keys) { for (const k of [].concat(keys)) delete mem[k] },
+    async set(obj) { write({ ...read(), ...obj }) },
+    async remove(keys) { const m = read(); for (const k of [].concat(keys)) delete m[k]; write(m) },
   }
 }
 
