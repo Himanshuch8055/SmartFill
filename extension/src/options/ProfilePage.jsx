@@ -4,6 +4,7 @@ import { Button, IconButton, Field, Input, Select, Textarea, DropdownMenu, Confi
 import { PROFILE_SECTIONS } from '../lib/profileFields'
 import { send, go } from './data'
 import { PageHeader, TextButton } from './layout'
+import JobApplication from './JobApplication'
 
 const SAVE_DELAY = 500
 
@@ -199,6 +200,17 @@ export default function ProfilePage({ data, profile, toast }) {
           </section>
         )
       })}
+
+      <JobApplication
+        profileId={profile.id}
+        draft={draft}
+        change={change}
+        // The resume is saved separately (SET_RESUME); keep the draft in sync without autosaving it.
+        setResumeMeta={(resume) => {
+          draftRef.current = { ...draftRef.current, resume }
+          setDraft(draftRef.current)
+        }}
+      />
 
       <CustomFields items={draft.customFields || []} onChange={(customFields) => change({ customFields })} />
 

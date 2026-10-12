@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- Job applications: save your resume (PDF or Word, up to 2 MB) once and SmartFill attaches it to resume/CV upload fields.
+- Screening questions: save answers to questions like "Are you authorized to work…?" or "Do you need visa sponsorship?". SmartFill matches them by wording and fills dropdowns, yes/no options and text boxes. One click adds common questions to start from.
+- Education fields: school, degree, field of study and graduation year.
 - "Report this site" link in the popup when no form fields are found. It opens a pre-filled report with only the site's domain.
 - After uninstalling, a short page with fixes for common problems and ways to report them. Nothing is collected.
 

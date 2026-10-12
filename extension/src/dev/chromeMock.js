@@ -29,6 +29,13 @@ function sampleData() {
           company: 'Acme Labs', jobTitle: 'Senior Frontend Engineer', website: 'https://asha.dev', linkedin: 'https://linkedin.com/in/asha',
           github: 'https://github.com/asha', yearsExperience: '6', noticePeriod: '30 days',
           address1: '12 MG Road', city: 'Pune', state: 'Maharashtra', zip: '411001', country: 'India',
+          school: 'University of Pune', degree: 'B.Tech', fieldOfStudy: 'Computer Science', graduationYear: '2019',
+          answers: [
+            { question: 'Are you legally authorized to work in this country?', answer: 'Yes' },
+            { question: 'Will you now or in the future require visa sponsorship?', answer: 'No' },
+            { question: 'Are you willing to relocate?', answer: 'Yes' },
+          ],
+          resume: { name: 'Asha-Verma-CV.pdf', type: 'application/pdf', size: 312 },
         },
       },
       {
@@ -44,6 +51,15 @@ function sampleData() {
     blockedSites: ['bank.example.com'],
     siteProfiles: { 'jobs.lever.co': 'work' },
     fillCount: 7,
+    // Tiny valid PDF so resume attachment can be tested end to end
+    'resume:work': {
+      name: 'Asha-Verma-CV.pdf',
+      type: 'application/pdf',
+      size: 312,
+      dataUrl:
+        'data:application/pdf;base64,' +
+        btoa(['%PDF-1.4', '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj', 'trailer<</Root 1 0 R>>', '%%EOF'].join(String.fromCharCode(10))),
+    },
   }
 }
 

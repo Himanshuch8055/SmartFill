@@ -43,6 +43,15 @@ export const PROFILE_SECTIONS = [
     ],
   },
   {
+    title: 'Education',
+    fields: [
+      { name: 'school', label: 'School / University', placeholder: 'University of Pune' },
+      { name: 'degree', label: 'Degree', placeholder: 'B.Tech' },
+      { name: 'fieldOfStudy', label: 'Field of Study', placeholder: 'Computer Science' },
+      { name: 'graduationYear', label: 'Graduation Year', placeholder: '2019' },
+    ],
+  },
+  {
     title: 'Address',
     fields: [
       { name: 'address1', label: 'Address Line 1', placeholder: '123 Main St' },
