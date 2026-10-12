@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-12
+
 ### Added
 - Multi-page forms: after you fill one step of a long form, SmartFill fills the next steps too, whether they appear on the same page or a new page on the same site. It only fills empty fields, never changes what you typed, and stops if you cancel the preview. Can be turned off in Settings.
 - Job applications: save your resume (PDF or Word, up to 2 MB) once and SmartFill attaches it to resume/CV upload fields.
@@ -45,5 +47,6 @@ First public release.
 - Never fills or reads password, payment card, one-time code, CAPTCHA or government ID fields.
 - Minimal permissions: `storage`, `activeTab` and `contextMenus`.
 
-[Unreleased]: https://github.com/Himanshuch8055/SmartFill/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Himanshuch8055/SmartFill/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Himanshuch8055/SmartFill/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Himanshuch8055/SmartFill/releases/tag/v1.0.0
