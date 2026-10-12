@@ -139,7 +139,7 @@ export async function duplicateProfile(id) {
 }
 
 // Settings included in backups (profiles and rules are handled separately).
-const BACKUP_SETTING_KEYS = ['widgetEnabled', 'fillMode', 'continueFill', 'popupProfileIds', 'snippets', 'snippetsEnabled']
+const BACKUP_SETTING_KEYS = ['widgetEnabled', 'fillMode', 'continueFill', 'popupProfileIds', 'snippets', 'snippetsEnabled', 'historyEnabled']
 
 // Full backup. version 2 adds rules, blocked sites, per-site profiles and settings.
 export async function exportProfiles() {
@@ -304,4 +304,34 @@ export async function setResume(profileId, resume) {
   }
   const meta = resume ? { name: resume.name, type: resume.type, size: resume.size } : null
   await updateProfile(profileId, { resume: meta })
+}
+
+// ---------- Fill history ----------
+// A short on-device log of fills: site, profile and number of fields. Never field values or full URLs.
+
+export const HISTORY_MAX = 200
+const MERGE_MS = 10 * 60 * 1000 // later steps of the same form join the same entry
+
+export async function getHistory() {
+  const { fillHistory } = await chrome.storage.local.get(['fillHistory'])
+  return Array.isArray(fillHistory) ? fillHistory : []
+}
+
+export async function addHistory({ host, profile, filled, tabId, continuation }, now = Date.now()) {
+  if (!host || !filled) return
+  const { historyEnabled } = await chrome.storage.local.get(['historyEnabled'])
+  if (historyEnabled === false) return
+  const list = await getHistory()
+  const last = list[0]
+  if (continuation && last && last.host === host && last.tabId === tabId && now - last.at < MERGE_MS) {
+    list[0] = { ...last, filled: last.filled + filled, steps: (last.steps || 1) + 1, at: now }
+  } else {
+    list.unshift({ at: now, host, profile: profile || '', filled, tabId })
+  }
+  await chrome.storage.local.set({ fillHistory: list.slice(0, HISTORY_MAX) })
+}
+
+export async function clearHistory(host) {
+  const list = host ? (await getHistory()).filter((e) => e.host !== host) : []
+  await chrome.storage.local.set({ fillHistory: list })
 }

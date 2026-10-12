@@ -19,6 +19,8 @@ import {
   getSiteProfiles,
   setSiteProfile,
   getProfileForHost,
+  addHistory,
+  clearHistory,
   getResume,
   setResume
 } from './lib/storage'
@@ -86,7 +88,10 @@ async function endSession(tabId) {
   await chrome.storage.session.remove(sessionKey(tabId)).catch?.(() => {})
 }
 
-chrome.tabs.onRemoved?.addListener((tabId) => endSession(tabId))
+chrome.tabs.onRemoved?.addListener((tabId) => {
+  endSession(tabId)
+  chrome.storage.session.remove(`fillProfile:${tabId}`).catch?.(() => {})
+})
 
 // preview: true/false forces a mode; undefined uses the user's setting (default: preview)
 // continuation: this is a later step of a form already filled in this tab
@@ -97,6 +102,8 @@ async function autofillTab(tab, { preview, profile, continuation = false } = {})
   const usePreview = preview ?? fillMode !== 'instant'
   const siteProfile = profile ? null : (await getProfileForHost(host))
   const data = profile || siteProfile?.data || (await getProfile())
+  // Remembered so the fill history can name the profile once the page reports what it filled.
+  await chrome.storage.session.set({ [`fillProfile:${tab.id}`]: profile ? '' : siteProfile?.name || '' }).catch(() => {})
   const rules = await getRules()
   // The resume is sent only when this profile has one and the page is filled.
   const resume = siteProfile?.id && data?.resume ? await getResume(siteProfile.id) : null
@@ -386,9 +393,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: true })
         break
       }
+      case 'CLEAR_HISTORY': {
+        await clearHistory(message.host)
+        sendResponse({ ok: true })
+        break
+      }
       case 'FILL_DONE': {
         const { fillCount = 0 } = await chrome.storage.local.get(['fillCount'])
         await chrome.storage.local.set({ fillCount: fillCount + 1 })
+        const tabId = sender.tab?.id
+        const key = `fillProfile:${tabId}`
+        const names = await chrome.storage.session.get(key).catch(() => ({}))
+        await addHistory({ host: hostOf(sender.tab?.url || ''), profile: names[key], filled: message.filled, tabId, continuation: message.continuation })
         sendResponse({ ok: true })
         break
       }
