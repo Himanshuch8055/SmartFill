@@ -1,5 +1,6 @@
 // Text snippets: type a short trigger (like ";addr") in any text field and it expands to saved text.
 import { isSensitive } from './detectFields'
+import { t } from './i18n'
 
 export const TRIGGER_PREFIX = ';'
 export const SNIPPET_MAX_LENGTH = 5000
@@ -12,10 +13,10 @@ export function normalizeTrigger(raw) {
 
 export function validateSnippet(snippet, others = []) {
   const trigger = normalizeTrigger(snippet.trigger)
-  if (trigger.length < 2) return 'Add a shortcut, like ;addr'
-  if (!String(snippet.text || '').trim()) return 'Add the text to insert'
-  if (snippet.text.length > SNIPPET_MAX_LENGTH) return `Keep it under ${SNIPPET_MAX_LENGTH} characters`
-  if (others.some((s) => normalizeTrigger(s.trigger) === trigger)) return `${trigger} is already used`
+  if (trigger.length < 2) return t('Add a shortcut, like ;addr')
+  if (!String(snippet.text || '').trim()) return t('Add the text to insert')
+  if (snippet.text.length > SNIPPET_MAX_LENGTH) return t('Keep it under {max} characters', { max: SNIPPET_MAX_LENGTH })
+  if (others.some((s) => normalizeTrigger(s.trigger) === trigger)) return t('{trigger} is already used', { trigger })
   return ''
 }
 

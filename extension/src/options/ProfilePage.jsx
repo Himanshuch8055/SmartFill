@@ -5,6 +5,7 @@ import { PROFILE_SECTIONS } from '../lib/profileFields'
 import { send, go } from './data'
 import { PageHeader, TextButton } from './layout'
 import JobApplication from './JobApplication'
+import { t } from '../lib/i18n'
 
 const SAVE_DELAY = 500
 
@@ -54,13 +55,13 @@ function SaveStatus({ status, onRetry }) {
   if (status === 'error') {
     return (
       <span className="text-[12px] text-danger">
-        Couldn't save. <TextButton className="text-danger" onClick={onRetry}>Retry</TextButton>
+        {t("Couldn't save.")} <TextButton className="text-danger" onClick={onRetry}>{t('Retry')}</TextButton>
       </span>
     )
   }
   return (
     <span className="text-[12px] text-fg-subtle" aria-live="polite">
-      {status === 'saved' ? 'All changes saved' : 'Saving…'}
+      {status === 'saved' ? t('All changes saved') : t('Saving…')}
     </span>
   )
 }
@@ -71,17 +72,17 @@ function ProfileField({ field, value, onChange }) {
   if (field.type === 'select') {
     control = (
       <Select {...common}>
-        <option value="">Not set</option>
-        {field.options.map((o) => <option key={o} value={o}>{o}</option>)}
+        <option value="">{t('Not set')}</option>
+        {field.options.map((o) => <option key={o} value={o}>{t(o)}</option>)}
       </Select>
     )
   } else if (field.type === 'textarea') {
-    control = <Textarea rows={3} placeholder={field.placeholder} {...common} />
+    control = <Textarea rows={3} placeholder={field.placeholder ? t(field.placeholder) : undefined} {...common} />
   } else {
-    control = <Input type={field.type || 'text'} placeholder={field.placeholder} autoComplete="off" {...common} />
+    control = <Input type={field.type || 'text'} placeholder={field.placeholder ? t(field.placeholder) : undefined} autoComplete="off" {...common} />
   }
   return (
-    <Field label={field.label} className={field.full ? 'md:col-span-2' : ''}>
+    <Field label={t(field.label)} className={field.full ? 'md:col-span-2' : ''}>
       {control}
     </Field>
   )
@@ -94,9 +95,9 @@ function CustomFields({ items, onChange }) {
   return (
     <section className="mb-10">
       <div className="mb-2">
-        <h2 className="text-[13px] font-semibold">Custom fields</h2>
+        <h2 className="text-[13px] font-semibold">{t('Custom fields')}</h2>
         <p className="text-[12px] text-fg-muted mt-0.5">
-          For anything not listed above. SmartFill fills a field when its label matches the name.
+          {t('For anything not listed above. SmartFill fills a field when its label matches the name.')}
         </p>
       </div>
       <div className="rounded-lg border border-line bg-surface">
@@ -104,16 +105,16 @@ function CustomFields({ items, onChange }) {
           <div className="p-4 space-y-2.5">
             {items.map((it, i) => (
               <div key={i} className="flex items-center gap-2">
-                <Input aria-label="Field name" placeholder="Label on the form, e.g. Nationality" value={it.name || ''} onChange={(e) => update(i, 'name', e.target.value)} />
-                <Input aria-label="Value" placeholder="Value" value={it.value || ''} onChange={(e) => update(i, 'value', e.target.value)} />
-                <IconButton icon={X} label="Remove field" size="sm" onClick={() => remove(i)} />
+                <Input aria-label={t('Field name')} placeholder={t('Label on the form, e.g. Nationality')} value={it.name || ''} onChange={(e) => update(i, 'name', e.target.value)} />
+                <Input aria-label={t('Value')} placeholder={t('Value')} value={it.value || ''} onChange={(e) => update(i, 'value', e.target.value)} />
+                <IconButton icon={X} label={t('Remove field')} size="sm" onClick={() => remove(i)} />
               </div>
             ))}
           </div>
         )}
         <div className={cn('px-4 py-3', items.length > 0 && 'border-t border-line')}>
           <TextButton onClick={add} className="inline-flex items-center gap-1.5 text-accent-text hover:text-accent-text">
-            <Plus size={14} aria-hidden /> Add custom field
+            <Plus size={14} aria-hidden /> {t('Add custom field')}
           </TextButton>
         </div>
       </div>
@@ -143,7 +144,7 @@ export default function ProfilePage({ data, profile, toast }) {
   }
 
   const rename = async () => {
-    const next = name.trim() || 'Profile'
+    const next = name.trim() || t('Profile')
     setName(next)
     if (next !== profile.name) await send({ type: 'RENAME_PROFILE', id: profile.id, name: next })
   }
@@ -152,11 +153,11 @@ export default function ProfilePage({ data, profile, toast }) {
   const onlyProfile = data.profiles.length < 2
 
   const actions = [
-    { label: 'Duplicate', onSelect: async () => {
+    { label: t('Duplicate'), onSelect: async () => {
       const res = await send({ type: 'DUPLICATE_PROFILE', id: profile.id })
       if (res?.id) go(`/profile/${res.id}`)
     } },
-    ...(onlyProfile ? [] : ['separator', { label: 'Delete profile…', danger: true, onSelect: () => setConfirmDelete(true) }]),
+    ...(onlyProfile ? [] : ['separator', { label: t('Delete profile…'), danger: true, onSelect: () => setConfirmDelete(true) }]),
   ]
 
   return (
@@ -166,16 +167,16 @@ export default function ProfilePage({ data, profile, toast }) {
           <>
             <SaveStatus status={status} onRetry={retry} />
             {isActive ? (
-              <span className="text-[12px] text-fg-muted px-2">Active profile</span>
+              <span className="text-[12px] text-fg-muted px-2">{t('Active profile')}</span>
             ) : (
-              <Button size="sm" onClick={() => send({ type: 'SET_ACTIVE_PROFILE', id: profile.id })}>Make active</Button>
+              <Button size="sm" onClick={() => send({ type: 'SET_ACTIVE_PROFILE', id: profile.id })}>{t('Make active')}</Button>
             )}
-            <DropdownMenu label="Profile actions" trigger={<IconButton icon={MoreHorizontal} label="Profile actions" size="sm" />} items={actions} />
+            <DropdownMenu label={t('Profile actions')} trigger={<IconButton icon={MoreHorizontal} label={t('Profile actions')} size="sm" />} items={actions} />
           </>
         }
       >
         <input
-          aria-label="Profile name"
+          aria-label={t('Profile name')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={rename}
@@ -189,8 +190,8 @@ export default function ProfilePage({ data, profile, toast }) {
         return (
           <section key={section.title} className="mb-10">
             <div className="mb-2 flex items-end justify-between">
-              <h2 className="text-[13px] font-semibold">{section.title}</h2>
-              <span className="text-[12px] text-fg-subtle">{filled} of {section.fields.length}</span>
+              <h2 className="text-[13px] font-semibold">{t(section.title)}</h2>
+              <span className="text-[12px] text-fg-subtle">{t('{filled} of {total}', { filled, total: section.fields.length })}</span>
             </div>
             <div className="rounded-lg border border-line bg-surface p-4 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
               {section.fields.map((f) => (
@@ -217,13 +218,13 @@ export default function ProfilePage({ data, profile, toast }) {
       <ConfirmDialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        title={`Delete “${profile.name}”?`}
-        description="This profile and any sites set to use it will be removed. This can't be undone."
-        confirmLabel="Delete"
+        title={t('Delete “{name}”?', { name: profile.name })}
+        description={t("This profile and any sites set to use it will be removed. This can't be undone.")}
+        confirmLabel={t('Delete')}
         danger
         onConfirm={async () => {
           await send({ type: 'DELETE_PROFILE', id: profile.id })
-          toast?.({ title: `Deleted ${profile.name}` })
+          toast?.({ title: t('Deleted {name}', { name: profile.name }) })
           go('/profile')
         }}
       />

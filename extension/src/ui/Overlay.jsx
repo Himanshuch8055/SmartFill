@@ -2,6 +2,7 @@ import React from 'react'
 import { X } from 'lucide-react'
 import { cn, focusRing } from './cn'
 import { Button, IconButton } from './Button'
+import { t } from '../lib/i18n'
 
 // Modal dialog built on native <dialog>: focus trapping, Esc to close and the backdrop come for free.
 export function Dialog({ open, onClose, title, description, children, footer, size = 'md' }) {
@@ -34,7 +35,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
               {title && <h2 id="sf-dialog-title" className="text-base font-semibold">{title}</h2>}
               {description && <p className="text-[13px] text-fg-muted mt-1">{description}</p>}
             </div>
-            <IconButton icon={X} label="Close" size="sm" onClick={onClose} className="-mr-1.5 -mt-1" />
+            <IconButton icon={X} label={t('Close')} size="sm" onClick={onClose} className="-mr-1.5 -mt-1" />
           </div>
           {children && <div className="mt-4">{children}</div>}
           {footer && <div className="mt-5 flex justify-end gap-2">{footer}</div>}
@@ -44,7 +45,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
   )
 }
 
-export function ConfirmDialog({ open, onClose, onConfirm, title, description, confirmLabel = 'Confirm', danger }) {
+export function ConfirmDialog({ open, onClose, onConfirm, title, description, confirmLabel = t('Confirm'), danger }) {
   return (
     <Dialog
       open={open}
@@ -55,7 +56,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, description, co
       footer={
         <>
           {/* Destructive confirms focus Cancel so an accidental Enter is harmless */}
-          <Button onClick={onClose} data-autofocus={danger ? '' : undefined}>Cancel</Button>
+          <Button onClick={onClose} data-autofocus={danger ? '' : undefined}>{t('Cancel')}</Button>
           <Button variant={danger ? 'danger' : 'primary'} onClick={() => { onConfirm(); onClose() }} data-autofocus={danger ? undefined : ''}>
             {confirmLabel}
           </Button>

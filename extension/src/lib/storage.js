@@ -139,7 +139,7 @@ export async function duplicateProfile(id) {
 }
 
 // Settings included in backups (profiles and rules are handled separately).
-const BACKUP_SETTING_KEYS = ['widgetEnabled', 'fillMode', 'continueFill', 'popupProfileIds', 'snippets', 'snippetsEnabled', 'historyEnabled', 'testDataEnabled']
+const BACKUP_SETTING_KEYS = ['widgetEnabled', 'fillMode', 'continueFill', 'popupProfileIds', 'snippets', 'snippetsEnabled', 'historyEnabled', 'testDataEnabled', 'language']
 
 // Full backup. version 2 adds rules, blocked sites, per-site profiles and settings.
 export async function exportProfiles() {

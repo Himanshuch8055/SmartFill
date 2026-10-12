@@ -1,0 +1,20 @@
+{
+  "appName": {
+    "message": "SmartFill"
+  },
+  "appDesc": {
+    "message": "Fill forms in one click from your saved profiles. Preview, undo, per-site rules. Your data never leaves your browser."
+  },
+  "actionTitle": {
+    "message": "SmartFill"
+  },
+  "cmdFill": {
+    "message": "Fill the form on this page"
+  },
+  "cmdUndo": {
+    "message": "Undo the last fill"
+  },
+  "cmdNextProfile": {
+    "message": "Switch to the next profile"
+  }
+}

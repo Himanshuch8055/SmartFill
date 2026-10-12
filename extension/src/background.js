@@ -27,6 +27,9 @@ import {
 import { makeTestProfile } from './lib/testData'
 import { PROFILE_FIELDS } from './lib/profileFields'
 import { GOODBYE_URL } from './lib/links'
+import { t, initLanguage } from './lib/i18n'
+
+initLanguage()
 
 // Short "why did you uninstall?" page. Only the version is passed; nothing is collected.
 try {
@@ -38,9 +41,9 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') })
 })
 
-// The "Fill with test data" menu item follows the developer setting.
+// The "Fill with test data" menu item follows the developer setting; titles follow the language.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && 'testDataEnabled' in changes) createContextMenus()
+  if (area === 'local' && ('testDataEnabled' in changes || 'language' in changes)) createContextMenus()
 })
 
 // ---------- Fill helpers ----------
@@ -103,7 +106,7 @@ chrome.tabs.onRemoved?.addListener((tabId) => {
 // continuation: this is a later step of a form already filled in this tab
 async function autofillTab(tab, { preview, profile, continuation = false, testData = false } = {}) {
   const host = hostOf(tab.url)
-  if (await isSiteBlocked(host)) return { ok: false, error: `SmartFill is turned off on ${host}` }
+  if (await isSiteBlocked(host)) return { ok: false, error: t('SmartFill is turned off on {host}', { host }) }
   // Test data: a new made-up person per fill, kept for the next steps of the same form.
   const testKey = `testProfile:${tab.id}`
   if (testData) {
@@ -128,7 +131,7 @@ async function autofillTab(tab, { preview, profile, continuation = false, testDa
     const res = await chrome.tabs.sendMessage(tab.id, { type: 'AUTOFILL', profile: data, rules, resume, preview: usePreview, continuation })
     return res || { ok: true }
   } catch (e) {
-    return { ok: false, error: 'SmartFill cannot run on this page. Try reloading it.' }
+    return { ok: false, error: t('SmartFill cannot run on this page. Try reloading it.') }
   }
 }
 
@@ -147,7 +150,7 @@ async function cycleProfile(tabId) {
   const idx = profiles.findIndex((p) => p.id === active?.id)
   const next = profiles[(idx + 1) % profiles.length]
   await setActiveProfile(next.id)
-  if (tabId) chrome.tabs.sendMessage(tabId, { type: 'TOAST', text: `SmartFill profile: ${next.name}` }).catch(() => {})
+  if (tabId) chrome.tabs.sendMessage(tabId, { type: 'TOAST', text: t('SmartFill profile: {name}', { name: next.name }) }).catch(() => {})
 }
 
 // ---------- Keyboard shortcuts ----------
@@ -164,17 +167,19 @@ chrome.commands?.onCommand.addListener(async (command) => {
 
 let testDataMenu = false
 
+// Loads the language first, so it also picks up a language change.
 async function createContextMenus() {
+  await initLanguage()
   testDataMenu = (await chrome.storage.local.get(['testDataEnabled'])).testDataEnabled === true
   chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({ id: 'sf-fill', title: 'SmartFill: Fill this form', contexts: ['page', 'editable'] })
-    chrome.contextMenus.create({ id: 'sf-field', title: 'Fill this field with', contexts: ['editable'] })
+    chrome.contextMenus.create({ id: 'sf-fill', title: t('SmartFill: Fill this form'), contexts: ['page', 'editable'] })
+    chrome.contextMenus.create({ id: 'sf-field', title: t('Fill this field with'), contexts: ['editable'] })
     for (const f of PROFILE_FIELDS) {
-      chrome.contextMenus.create({ id: `sf-field:${f.name}`, parentId: 'sf-field', title: f.label, contexts: ['editable'] })
+      chrome.contextMenus.create({ id: `sf-field:${f.name}`, parentId: 'sf-field', title: t(f.label), contexts: ['editable'] })
     }
-    if (testDataMenu) chrome.contextMenus.create({ id: 'sf-test', title: 'SmartFill: Fill with test data', contexts: ['page', 'editable'] })
-    chrome.contextMenus.create({ id: 'sf-undo', title: 'SmartFill: Undo last fill', contexts: ['page', 'editable'] })
-    chrome.contextMenus.create({ id: 'sf-toggle-site', title: 'SmartFill: Turn on/off for this site', contexts: ['page', 'editable'] })
+    if (testDataMenu) chrome.contextMenus.create({ id: 'sf-test', title: t('SmartFill: Fill with test data'), contexts: ['page', 'editable'] })
+    chrome.contextMenus.create({ id: 'sf-undo', title: t('SmartFill: Undo last fill'), contexts: ['page', 'editable'] })
+    chrome.contextMenus.create({ id: 'sf-toggle-site', title: t('SmartFill: Turn on/off for this site'), contexts: ['page', 'editable'] })
   })
 }
 
@@ -185,7 +190,7 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
   if (id === 'sf-toggle-site') {
     const blocked = !(await isSiteBlocked(host))
     await setSiteBlocked(host, blocked)
-    const text = blocked ? `SmartFill turned off on ${host}` : `SmartFill turned on for ${host}`
+    const text = blocked ? t('SmartFill turned off on {host}', { host }) : t('SmartFill turned on for {host}', { host })
     chrome.tabs.sendMessage(tab.id, { type: 'TOAST', text, force: true }).catch(() => {})
     return
   }
@@ -321,7 +326,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'AUTOFILL_ACTIVE': {
         const tab = await getActiveTab()
         if (!tab?.id) {
-          sendResponse({ ok: false, error: 'No active tab' })
+          sendResponse({ ok: false, error: t('No active tab') })
           break
         }
         sendResponse(await autofillTab(tab, { preview: message.preview, profile: message.profile, testData: message.testData === true }))
@@ -329,7 +334,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       case 'UNDO_ACTIVE': {
         const tab = await getActiveTab()
-        sendResponse(tab?.id ? await undoTab(tab.id) : { ok: false, error: 'No active tab' })
+        sendResponse(tab?.id ? await undoTab(tab.id) : { ok: false, error: t('No active tab') })
         break
       }
       // Everything the popup needs about the current tab in one call.
@@ -402,7 +407,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await setResume(message.id, message.resume || null)
           sendResponse({ ok: true })
         } catch (e) {
-          sendResponse({ ok: false, error: e?.message || "Couldn't save the file" })
+          sendResponse({ ok: false, error: e?.message || t("Couldn't save the file") })
         }
         break
       }
@@ -432,7 +437,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break
       }
       default:
-        sendResponse({ ok: false, error: 'Unknown message type' })
+        sendResponse({ ok: false, error: t('Unknown message type') })
     }
   })()
   return true // keep message channel open for async

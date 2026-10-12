@@ -2,6 +2,7 @@ import React from 'react'
 import { Button, Input, Textarea, Switch } from '../ui'
 import { normalizeTrigger, validateSnippet, SNIPPET_MAX_LENGTH } from '../lib/snippets'
 import { PageHeader, Group, SettingRow, EmptyRow, TextButton } from './layout'
+import { t } from '../lib/i18n'
 
 const save = (snippets) => chrome.storage.local.set({ snippets })
 
@@ -21,15 +22,15 @@ function SnippetForm({ initial, others, onSave, onCancel }) {
     <form onSubmit={submit} className="px-4 py-3 space-y-2">
       <div className="flex gap-3">
         <Input
-          aria-label="Shortcut"
+          aria-label={t('Shortcut')}
           value={trigger}
           onChange={(e) => { setTrigger(e.target.value); setError('') }}
           className="w-36 font-mono"
           autoFocus
         />
         <Textarea
-          aria-label="Text to insert"
-          placeholder="Text to insert. {date} and {time} are replaced when it's inserted."
+          aria-label={t('Text to insert')}
+          placeholder={t("Text to insert. {date} and {time} are replaced when it's inserted.")}
           value={text}
           maxLength={SNIPPET_MAX_LENGTH}
           onChange={(e) => { setText(e.target.value); setError('') }}
@@ -38,9 +39,9 @@ function SnippetForm({ initial, others, onSave, onCancel }) {
         />
       </div>
       <div className="flex items-center justify-end gap-2">
-        {error && <p className="mr-auto text-[12px] text-danger" role="alert">{error}</p>}
-        <Button size="sm" onClick={onCancel}>Cancel</Button>
-        <Button size="sm" variant="primary" type="submit">Save</Button>
+        {error && <p className="mr-auto text-[12px] text-danger" role="alert">{t(error)}</p>}
+        <Button size="sm" onClick={onCancel}>{t('Cancel')}</Button>
+        <Button size="sm" variant="primary" type="submit">{t('Save')}</Button>
       </div>
     </form>
   )
@@ -56,18 +57,18 @@ export default function SnippetsPage({ data }) {
   return (
     <div>
       <PageHeader
-        title="Snippets"
-        description="Type a shortcut in any text field and SmartFill replaces it with your saved text. Works in all text boxes except password and payment fields."
-        actions={editing !== 'new' && <Button size="sm" onClick={() => setEditing('new')}>Add snippet</Button>}
+        title={t('Snippets')}
+        description={t('Type a shortcut in any text field and SmartFill replaces it with your saved text. Works in all text boxes except password and payment fields.')}
+        actions={editing !== 'new' && <Button size="sm" onClick={() => setEditing('new')}>{t('Add snippet')}</Button>}
       />
 
       <Group>
-        <SettingRow label="Expand snippets as I type" htmlFor="set-snippets">
+        <SettingRow label={t('Expand snippets as I type')} htmlFor="set-snippets">
           <Switch id="set-snippets" checked={snippetsEnabled} onChange={(on) => chrome.storage.local.set({ snippetsEnabled: on })} />
         </SettingRow>
       </Group>
 
-      <Group title="Your snippets">
+      <Group title={t('Your snippets')}>
         {editing === 'new' && (
           <SnippetForm
             others={snippets}
@@ -76,7 +77,7 @@ export default function SnippetsPage({ data }) {
           />
         )}
         {sorted.length === 0 && editing !== 'new' && (
-          <EmptyRow>No snippets yet. Try ;addr for your address or ;intro for a short bio.</EmptyRow>
+          <EmptyRow>{t('No snippets yet. Try ;addr for your address or ;intro for a short bio.')}</EmptyRow>
         )}
         {sorted.map((s) =>
           editing === s.i ? (
@@ -92,8 +93,8 @@ export default function SnippetsPage({ data }) {
               <code className="w-28 shrink-0 font-mono text-fg">{s.trigger}</code>
               <p className="flex-1 min-w-0 text-fg-muted whitespace-pre-line line-clamp-2">{s.text}</p>
               <div className="flex gap-3 shrink-0">
-                <TextButton onClick={() => setEditing(s.i)}>Edit</TextButton>
-                <TextButton danger onClick={() => save(othersThan(s.i))}>Delete</TextButton>
+                <TextButton onClick={() => setEditing(s.i)}>{t('Edit')}</TextButton>
+                <TextButton danger onClick={() => save(othersThan(s.i))}>{t('Delete')}</TextButton>
               </div>
             </div>
           )
