@@ -18,6 +18,11 @@ function sampleData() {
   }
   return {
     schemaVersion: 2,
+    snippets: [
+      { trigger: ';addr', text: '221B Baker Street, London NW1 6XE' },
+      { trigger: ';intro', text: "Hi, I'm Aarav, a frontend engineer based in Bengaluru." },
+      { trigger: ';intro2', text: 'Thanks for reaching out. I will get back to you by {date}.' },
+    ],
     activeProfileId: 'work',
     profiles: [
       {
