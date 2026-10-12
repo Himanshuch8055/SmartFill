@@ -5,7 +5,7 @@ export default {
   manifest_version: 3,
   name: "SmartFill",
   description: "Fill forms in one click from your saved profiles. Preview, undo, per-site rules. Your data never leaves your browser.",
-  version: "1.0.0",
+  version: "1.1.0",
   icons: {
     16: "icons/icon16.png",
     32: "icons/icon32.png",
