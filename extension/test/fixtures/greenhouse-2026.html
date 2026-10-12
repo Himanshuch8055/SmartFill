@@ -1,0 +1,19 @@
+<!-- Greenhouse job board (2026 design), structure captured from a live posting (October 2026).
+     Country and screening questions are React Select comboboxes; the phone has a country-code picker. -->
+<form>
+  <div><label id="first_name-label" for="first_name">First Name<span>*</span></label><input id="first_name" aria-label="First Name" type="text" maxlength="255" autocomplete="given-name" data-expect="firstName"></div>
+  <div><label id="last_name-label" for="last_name">Last Name<span>*</span></label><input id="last_name" aria-label="Last Name" type="text" maxlength="255" autocomplete="family-name" data-expect="lastName"></div>
+  <div><label id="email-label" for="email">Email<span>*</span></label><input id="email" aria-label="Email" type="text" maxlength="255" autocomplete="email" data-expect="email"></div>
+  <div>
+    <div><label id="country-label" for="country">Country</label>
+      <div><div><div id="react-select-country-placeholder"></div><div><input autocomplete="off" id="country" type="text" aria-labelledby="country-label" role="combobox" aria-describedby="react-select-country-placeholder" data-expect="country"></div></div></div>
+    </div>
+    <div><div role="dialog"><input id="iti-0__search-input" type="search" placeholder="Search" role="combobox" aria-label="Search" autocomplete="off"></div></div>
+    <input id="phone" aria-label="Phone" type="tel" maxlength="255" autocomplete="off" data-expect="phone">
+  </div>
+  <div role="group" aria-labelledby="upload-label-resume"><div id="upload-label-resume">Resume/CV</div><label for="resume">Attach</label><input id="resume" type="file" accept=".pdf,.doc,.docx,.txt,.rtf"></div>
+  <div><label id="question_1-label" for="question_1">LinkedIn Profile</label><input id="question_1" type="text" aria-label="LinkedIn Profile" data-expect="linkedin"></div>
+  <span id="question_2-label">Are you legally authorized to work in the country where this job is located? *</span>
+  <div><div><div id="react-select-question_2-placeholder">Select...</div><div><input autocomplete="off" id="question_2" type="text" aria-labelledby="question_2-label" role="combobox" aria-describedby="react-select-question_2-placeholder" data-expect="none"></div></div></div>
+  <div><textarea id="g-recaptcha-response-100000" name="g-recaptcha-response" data-expect="none"></textarea></div>
+</form>

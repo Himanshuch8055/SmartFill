@@ -28,6 +28,16 @@ const SYNONYMS = {
   age: 'old',
   older: 'old',
   over: 'old',
+  heard: 'hear',
+  learn: 'hear',
+  learned: 'hear',
+  find: 'hear',
+  found: 'hear',
+  opportunity: 'job',
+  position: 'job',
+  role: 'job',
+  opening: 'job',
+  posting: 'job',
 }
 
 export function questionTokens(text) {

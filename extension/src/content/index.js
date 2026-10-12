@@ -1,5 +1,5 @@
 // Content script
-import { findFillableInputs, fillFields, deriveProfile, snapshot, restore, findAnswerTargets, findResumeInputs, isEmptyTarget } from '../lib/detectFields'
+import { findFillableInputs, fillFields, settleComboboxes, deriveProfile, snapshot, restore, findAnswerTargets, findResumeInputs, isEmptyTarget } from '../lib/detectFields'
 import { PROFILE_FIELDS } from '../lib/profileFields'
 import { showPreview, showToast, showFieldPrompt } from './preview'
 import { mountWidget } from './widget'
@@ -249,9 +249,10 @@ function countTargets(map) {
 
 let lastSnapshot = null
 
-function runFill(map, profile, { continuation = false } = {}) {
+async function runFill(map, profile, { continuation = false } = {}) {
   const snap = snapshot(map)
-  const { filled } = fillFields(map, profile)
+  let { filled, pending } = fillFields(map, profile)
+  if (pending) filled += await settleComboboxes()
   if (filled) {
     lastSnapshot = snap
     showToast(continuation ? tn(filled, 'Filled {n} more field.', 'Filled {n} more fields.') : tn(filled, 'Filled {n} field.', 'Filled {n} fields.'), {
@@ -421,7 +422,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         })
         sendResponse({ ok: true, preview: true, count })
       } else {
-        sendResponse({ ok: true, filled: runFill(map, profile, { continuation }) })
+        runFill(map, profile, { continuation }).then((filled) => sendResponse({ ok: true, filled }))
+        return true // answered after custom dropdowns are filled
       }
       return false
     }
@@ -439,14 +441,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const profile = deriveProfile(msg.profile || {})
       const map = { [msg.key]: [el] }
       const snap = snapshot(map)
-      const { filled } = fillFields(map, profile)
-      if (filled) {
-        lastSnapshot = snap
-        // An explicit "fill this field with X" is a strong hint: offer to remember it.
-        offerRule(el, msg.key)
-      } else showToast(t('Your profile has no {label} yet.', { label: fieldLabel(msg.key) }))
-      sendResponse({ ok: true, filled })
-      return false
+      ;(async () => {
+        let { filled, pending } = fillFields(map, profile)
+        if (pending) filled += await settleComboboxes()
+        if (filled) {
+          lastSnapshot = snap
+          // An explicit "fill this field with X" is a strong hint: offer to remember it.
+          offerRule(el, msg.key)
+        } else showToast(t('Your profile has no {label} yet.', { label: fieldLabel(msg.key) }))
+        sendResponse({ ok: true, filled })
+      })()
+      return true
     }
     case 'TOAST': {
       if (isTop && (!siteBlocked || msg.force)) showToast(msg.text)

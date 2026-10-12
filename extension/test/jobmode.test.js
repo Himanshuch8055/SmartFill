@@ -87,3 +87,72 @@ describe('multi-page forms: empty targets', () => {
     expect(isEmptyTarget($('t'))).toBe(true)
   })
 })
+
+describe('custom dropdowns (role="combobox")', () => {
+  // A small stand-in for React Select: options render after typing; clicking one shows it as the value.
+  function mountCombobox(id, options) {
+    const wrap = document.createElement('div')
+    wrap.innerHTML = `<label for="${id}">Country</label><div><div><span id="${id}-placeholder">Select...</span>
+      <input id="${id}" role="combobox" aria-controls="${id}-list" aria-describedby="${id}-placeholder"></div></div>
+      <div id="${id}-list" role="listbox"></div>`
+    document.body.appendChild(wrap)
+    const input = wrap.querySelector('input')
+    const list = wrap.querySelector('[role=listbox]')
+    const shown = wrap.querySelector('span')
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase()
+      list.innerHTML = q ? options.filter((o) => o.toLowerCase().includes(q)).map((o) => `<div role="option">${o}</div>`).join('') : ''
+    })
+    // Like React Select: typed text that wasn't chosen is dropped when the field loses focus.
+    input.addEventListener('blur', () => { input.value = ''; list.innerHTML = '' })
+    list.addEventListener('click', (e) => {
+      shown.textContent = e.target.textContent
+      shown.id = ''
+      input.value = ''
+      list.innerHTML = ''
+    })
+    return { input, shown }
+  }
+
+  it('types, waits for the options and clicks the best match', async () => {
+    const { fillCombobox, isEmptyTarget } = await import('../src/lib/detectFields.js')
+    const { input, shown } = mountCombobox('c', ['British Indian Ocean Territory', 'India', 'Indonesia'])
+    expect(isEmptyTarget(input)).toBe(true)
+    expect(await fillCombobox(input, 'India')).toBe(true)
+    expect(shown.textContent).toBe('India')
+    expect(isEmptyTarget(input)).toBe(false) // a chosen option counts as filled on later steps
+  })
+
+  it('fills dropdowns after normal fields and counts them', async () => {
+    const { fillFields, settleComboboxes, findFillableInputs } = await import('../src/lib/detectFields.js')
+    mount('<label for="e">Email</label><input id="e" type="email">')
+    const { shown } = mountCombobox('k', ['Canada', 'India'])
+    const { filled, pending } = fillFields(findFillableInputs(document), { email: 'a@example.com', country: 'IN' })
+    expect([filled, pending]).toEqual([1, 1])
+    expect(await settleComboboxes()).toBe(1)
+    expect(shown.textContent).toBe('India') // matched via the IN alias
+  })
+
+  it('leaves a dropdown empty when nothing matches', async () => {
+    const { fillCombobox } = await import('../src/lib/detectFields.js')
+    const { input, shown } = mountCombobox('n', ['Canada'])
+    expect(await fillCombobox(input, 'Narnia', { timeout: 300 })).toBe(false)
+    expect(shown.textContent).toBe('Select...')
+  })
+})
+
+describe('questions shown above the field (Lever custom questions)', () => {
+  it('reads the question block next to radios and dropdowns', async () => {
+    const fs = await import('fs')
+    const path = await import('path')
+    mount(fs.readFileSync(path.join(__dirname, 'fixtures', 'lever-2026.html'), 'utf8'))
+    const targets = findAnswerTargets(document, COMMON_QUESTIONS)
+    const byAnswer = Object.fromEntries(targets.map((t) => [t.question.slice(0, 30), t.answer]))
+    expect(byAnswer).toMatchObject({
+      'are you legally authorized to ': 'Yes',
+      'please tell us how you heard a': 'LinkedIn',
+    })
+    // The language checkboxes and the free-text "why" question are left alone.
+    expect(targets.some((t) => /language|why do you/.test(t.question))).toBe(false)
+  })
+})

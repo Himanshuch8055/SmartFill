@@ -6,10 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- Custom dropdowns: SmartFill now picks options in search-as-you-type dropdowns (React Select and similar), used by Greenhouse, Ashby and many others for country, location and screening questions.
 - Hindi translation (हिन्दी). SmartFill follows your browser language, or pick one in Settings → Appearance → Language. The store listing name and description are translated too.
 - Test data for developers: turn on "Fill with test data" in Settings → Developers to fill forms with a new made-up person each time (example.com emails, fake phone numbers, matching city/state/country). Available from the popup and the right-click menu, and kept for the next steps of a multi-page form.
 - Fill history: a new History page lists where you used SmartFill (site, profile, number of fields; steps of one form are grouped). The popup shows "Filled here 3 days ago" on sites you already filled. Stays on your device, never stores what was filled, and can be turned off or cleared.
 - Text snippets: save text under a shortcut like `;addr`, then type the shortcut in any text field or editor to insert it. `{date}` and `{time}` are filled in when inserted. Never runs in password or payment fields, or on sites you turned off. Manage them on the new Snippets page in Settings.
+
+### Fixed
+- A list of checkboxes could be mistaken for a profile field (for example "Telugu (TEL)" filled as a phone number). Checkboxes are no longer used for profile fields.
+- Questions shown above a field instead of in a label (Lever custom questions, many React forms) are now read, so saved answers match them.
+- "Current location" and "Where are you currently located?" fields are filled with your city.
+- "How did you hear about this opportunity?" now matches a saved "How did you hear about this job?" answer.
 
 ## [1.1.0] - 2026-10-12
 

@@ -28,7 +28,7 @@ export const FIELD_SPECS = [
   { key: 'school', re: /\b(school|college|university|institution|institute)\b(\s*name)?/, not: /\bhigh school (diploma|grade)\b/ },
   { key: 'address2', ac: ['address-line2'], re: /\baddress\s*(line\s*)?2\b|\bapartment\b|\bapt\b|\bsuite\b|\bunit\b|\blandmark\b/ },
   { key: 'address1', ac: ['address-line1', 'street-address'], re: /\baddress\s*(line\s*)?1?\b|\bstreet\b/, not: /\be\s*-?\s*mail\b|\bweb\b|\bip\b|\b(line\s*)?2\b/ },
-  { key: 'city', ac: ['address-level2'], re: /\bcity\b|\btown\b/, not: /\bethnicity\b/ },
+  { key: 'city', ac: ['address-level2'], re: /\bcity\b|\btown\b|\blocation\b|\bwhere (are )?you (currently )?(located|based)\b/, not: /\bethnicity\b|\b(preferred|desired|job|work|office|relocat\w*)\s+location\b|\blocations\b/ },
   { key: 'state', ac: ['address-level1'], re: /\bstate\b|\bprovince\b|\bregion\b|\bcounty\b/, not: /statement|\bcountry\b/ },
   { key: 'zip', ac: ['postal-code'], re: /\bzip\b|\bpostal\b|\bpost\s*code\b|\bpin\s*code\b|\bpincode\b/ },
   // Exclude eligibility questions ("authorized to work in this country?")
@@ -72,6 +72,36 @@ function textFromAriaLabelledBy(node) {
     .join(' ')
 }
 
+const FIELD_SELECTOR = 'input:not([type="hidden"]), select, textarea'
+
+// Text shown just above a field (or a group of radios) when there is no <label> or <legend>:
+// the question block many custom forms (Lever, React form builders) put in a sibling element.
+// own: the elements that belong to this question, so other questions' text is never used.
+export function textAbove(start, own = [start]) {
+  let node = start
+  for (let depth = 0; depth < 6 && node?.parentElement && node !== node.ownerDocument.body; depth++) {
+    let sib = node.previousElementSibling
+    for (let n = 0; sib && n < 2; sib = sib.previousElementSibling, n++) {
+      if (sib.matches(FIELD_SELECTOR) || sib.querySelector(FIELD_SELECTOR)) break
+      const text = sib.textContent.replace(/\s+/g, ' ').trim()
+      if (text && text.length <= 300) return text
+    }
+    const parent = node.parentElement
+    if ([...parent.querySelectorAll(FIELD_SELECTOR)].some((f) => !own.includes(f))) break
+    node = parent
+  }
+  return ''
+}
+
+// The question for a radio group: legend, question title, or the text above the group.
+function groupQuestion(el, group) {
+  return normalize(
+    el.closest('fieldset')?.querySelector('legend')?.textContent ||
+      el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent ||
+      textAbove(el, group)
+  )
+}
+
 function labelText(el) {
   const parts = []
   // el.labels covers both <label for> and wrapping labels
@@ -83,7 +113,7 @@ function labelText(el) {
   parts.push(el.getAttribute('aria-label'), textFromAriaLabelledBy(el))
   if (!parts.some((p) => p && p.trim())) {
     const title = el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent
-    if (title) parts.push(title)
+    parts.push(title || (el.type !== 'checkbox' && el.type !== 'radio' ? textAbove(el) : ''))
   }
   return normalize(parts.filter(Boolean).join(' '))
 }
@@ -144,6 +174,8 @@ export function findFillableInputs(root = document) {
     seen.add(el)
     const type = String(el.getAttribute('type') || '').toLowerCase()
     if (el.tagName === 'INPUT' && SKIP_TYPES.has(type)) continue
+    // Checkboxes are option lists or consents, never a profile value ("Telugu (TEL)" is not a phone).
+    if (type === 'checkbox') continue
     if (!isVisible(el)) continue
     // Radios: score once per group, using the group's legend/question text
     if (type === 'radio') {
@@ -151,8 +183,7 @@ export function findFillableInputs(root = document) {
       if (!name || radioGroups.has(name)) continue
       radioGroups.add(name)
       const group = Array.from(root.querySelectorAll('input[type="radio"]')).filter((r) => r.name === name && !r.disabled)
-      const legend = normalize(el.closest('fieldset')?.querySelector('legend')?.textContent || el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent || '')
-      const text = `${legend} ${normalize(name)}`
+      const text = `${groupQuestion(el, group)} ${normalize(name)}`
       const spec = FIELD_SPECS.find((sp) => textMatches(sp, text))
       if (spec) (map[spec.key] ||= []).push(group)
       continue
@@ -298,6 +329,100 @@ function fillContentEditable(el, value) {
 }
 
 // Fill one target (element or radio group). Returns true if something changed.
+// ---------- custom dropdowns ----------
+// React Select, Headless UI, MUI Autocomplete and similar: an <input role="combobox"> whose options
+// appear in a separate listbox only after typing. They are filled after the normal fields, one at a
+// time (only one menu can be open): type the value, wait for the options, then click the best match.
+
+export function isCombobox(el) {
+  return el?.tagName === 'INPUT' && el.getAttribute('role') === 'combobox' && !isSensitive(el)
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+function visibleOptions(el) {
+  const doc = el.ownerDocument
+  const box = doc.getElementById(el.getAttribute('aria-controls') || el.getAttribute('aria-owns') || '')
+  const scope = box || doc
+  return Array.from(scope.querySelectorAll('[role="option"]')).filter(
+    (o) => (box || o.getClientRects().length) && o.getAttribute('aria-disabled') !== 'true'
+  )
+}
+
+function press(el, key) {
+  el.dispatchEvent(new KeyboardEvent('keydown', { key, code: key, bubbles: true, cancelable: true }))
+}
+
+function clickOption(opt) {
+  for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup']) {
+    const Ctor = type.startsWith('pointer') && typeof PointerEvent === 'function' ? PointerEvent : MouseEvent
+    opt.dispatchEvent(new Ctor(type, { bubbles: true, cancelable: true, button: 0 }))
+  }
+  opt.click()
+}
+
+// Returns true when an option was chosen (or the typed text stayed, for free-text autocompletes).
+export async function fillCombobox(el, value, { timeout = 900 } = {}) {
+  if (!el?.isConnected) return false
+  const text = String(value)
+  try { el.focus({ preventScroll: true }) } catch {}
+  // Some menus open on typing, others only on a click or ArrowDown.
+  setNativeValue(el, '')
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, inputType: 'deleteContentBackward' }))
+  setNativeValue(el, text)
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: text }))
+  let options = []
+  for (let waited = 0; waited <= timeout; waited += 100) {
+    await sleep(100)
+    options = visibleOptions(el)
+    if (options.length) break
+    if (waited === 300) press(el, 'ArrowDown')
+  }
+  const opt = pickOption(options.map((o) => ({ el: o, value: o.getAttribute('data-value') || '', text: o.textContent })), text)
+  if (opt) {
+    clickOption(opt.el)
+    await sleep(50)
+    return true
+  }
+  // No matching option: keep free text if the field accepts it (it survives losing focus);
+  // select-style dropdowns clear it on blur.
+  press(el, 'Escape')
+  el.blur()
+  await sleep(50)
+  return String(el.value).trim().toLowerCase() === text.trim().toLowerCase()
+}
+
+// Text a custom dropdown shows next to its input (the chosen option), ignoring its placeholder.
+export function comboboxDisplay(el) {
+  const doc = el.ownerDocument
+  const squash = (s) => String(s || '').replace(/\s+/g, ' ').trim()
+  const placeholder = (el.getAttribute('aria-describedby') || '').split(/\s+/)
+    .map((id) => doc.getElementById(id)).filter((n) => n && /placeholder/i.test(n.id)).map((n) => squash(n.textContent))
+  let box = el
+  for (let i = 0; i < 3 && box.parentElement; i++) box = box.parentElement
+  // Leave out the field's own label and any open option list.
+  const skip = [...(el.labels || []), ...box.querySelectorAll('[role="listbox"], [role="option"]')]
+  const walker = doc.createTreeWalker(box, NodeFilter.SHOW_TEXT)
+  let text = ''
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (!skip.some((s) => s.contains(n))) text += ' ' + n.data
+  const shown = squash(text)
+  return shown && !placeholder.includes(shown) ? shown : ''
+}
+
+let comboQueue = []
+
+// Fills the custom dropdowns queued by fillElement. Returns how many were filled.
+export async function settleComboboxes() {
+  const queue = comboQueue
+  comboQueue = []
+  let count = 0
+  for (const { el, value } of queue) {
+    try { if (await fillCombobox(el, value)) count++ } catch (e) { console.debug('[SmartFill] dropdown fill failed', e) }
+  }
+  try { queue.at(-1)?.el.blur() } catch {}
+  return count
+}
+
 export function fillElement(key, target, value) {
   if (value == null || String(value) === '') return false
   if (Array.isArray(target)) return fillRadioGroup(target, value)
@@ -305,6 +430,10 @@ export function fillElement(key, target, value) {
   if (!el?.isConnected) return false
   if (el.tagName === 'INPUT' && el.type === 'file') return value?.dataUrl ? attachFile(el, value) : false
   if (el.tagName === 'INPUT' && isSensitive(el)) return false
+  if (isCombobox(el)) {
+    comboQueue.push({ el, value: adaptValue(key, el, value) })
+    return false // counted when settleComboboxes() fills it
+  }
   try { el.focus({ preventScroll: true }) } catch {}
   const v = adaptValue(key, el, value)
   const type = String(el.getAttribute('type') || '').toLowerCase()
@@ -347,8 +476,7 @@ export function fillFields(fieldMap, profile) {
       }
     }
   }
-  try { console.debug('[SmartFill] Total filled:', count) } catch {}
-  return { filled: count }
+  return { filled: count, pending: comboQueue.length }
 }
 
 // ---------- undo ----------
@@ -390,6 +518,13 @@ export function restore(snap = []) {
       if (el.checked === checked) continue
       el.checked = checked
       dispatchAll(el)
+    } else if (isCombobox(el)) {
+      // A chosen option isn't the input's value; Backspace on the empty input clears it in most libraries.
+      if (value) continue
+      try { el.focus({ preventScroll: true }) } catch {}
+      setNativeValue(el, '')
+      press(el, 'Backspace')
+      el.blur()
     } else {
       if (el.value === value) continue
       if (el.tagName === 'SELECT') el.value = value
@@ -407,7 +542,7 @@ export function restore(snap = []) {
 export function questionText(el) {
   const own = labelText(el)
   if (own) return own
-  return normalize(el.closest('fieldset')?.querySelector('legend')?.textContent || el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent || '')
+  return groupQuestion(el, [el])
 }
 
 // Fields whose question matches one of the saved screening answers.
@@ -430,7 +565,7 @@ export function findAnswerTargets(root = document, answers = [], claimed = new S
       radioGroups.add(name)
       target = Array.from(root.querySelectorAll('input[type="radio"]')).filter((r) => r.name === name && !r.disabled)
       if (target.some((r) => claimed.has(r))) continue
-      question = normalize(el.closest('fieldset')?.querySelector('legend')?.textContent || el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent || '')
+      question = groupQuestion(el, target)
     } else {
       question = questionText(el)
     }
@@ -498,6 +633,7 @@ export function isEmptyTarget(target) {
   if (el.tagName === 'INPUT' && el.type === 'file') return !el.files?.length
   if (el.tagName === 'INPUT' && el.type === 'checkbox') return false
   if (el.tagName === 'SELECT') return !el.value
+  if (isCombobox(el)) return !comboboxDisplay(el) && !String(el.value).trim()
   if (el.isContentEditable) return !el.textContent.trim()
   return !String(el.value ?? '').trim()
 }

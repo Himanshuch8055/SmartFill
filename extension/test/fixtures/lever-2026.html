@@ -1,0 +1,31 @@
+<!-- Lever application form, structure captured from a live posting (October 2026). Custom questions
+     put the question text in a sibling .application-label block, not in a <label>. -->
+<form>
+  <ul>
+    <li class="application-question"><label><div class="application-label">Full name<span class="required">✱</span></div><div class="application-field"><input type="text" name="name" data-expect="fullName"></div></label></li>
+    <li class="application-question"><label><div class="application-label">Email<span class="required">✱</span></div><div class="application-field"><input type="email" name="email" data-expect="email"></div></label></li>
+    <li class="application-question"><label><div class="application-label">Phone</div><div class="application-field"><input type="text" name="phone" data-expect="phone"></div></label></li>
+    <li class="application-question"><label><div class="application-label">Current location<span class="required">✱</span></div><div class="application-field"><input type="text" name="location" id="location-input" data-expect="city"><div class="dropdown-results"><div class="dropdown-no-results">No location found. Try entering a different location</div></div></div></label></li>
+    <li class="application-question"><label><div class="application-label">Current company</div><div class="application-field"><input type="text" name="org" data-expect="company"></div></label></li>
+  </ul>
+  <ul>
+    <li class="application-question"><label><div class="application-label">LinkedIn URL</div><div class="application-field"><input type="text" name="urls[LinkedIn]" data-expect="linkedin"></div></label></li>
+    <li class="application-question"><label><div class="application-label">GitHub URL</div><div class="application-field"><input type="text" name="urls[GitHub]" data-expect="github"></div></label></li>
+  </ul>
+  <ul>
+    <li class="application-question custom-question"><div><div class="application-label full-width multiple-select"><div class="text">Language Skill(s) (Check all that apply)<span class="required">✱</span></div></div><div class="application-field full-width required-field"><ul>
+      <li><label><input type="checkbox" name="cards[a69a][field0]" value="English (ENG)" data-expect="none"><span class="application-answer-alternative">English (ENG)</span></label></li>
+      <li><label><input type="checkbox" name="cards[a69a][field0]" value="Telugu (TEL)" data-expect="none"><span class="application-answer-alternative">Telugu (TEL)</span></label></li>
+      <li><label><input type="checkbox" name="cards[a69a][field0]" value="Hindi (HIN)" data-expect="none"><span class="application-answer-alternative">Hindi (HIN)</span></label></li>
+    </ul></div></div></li>
+    <li class="application-question custom-question"><div><div class="application-label full-width text"><div class="text">Preferred Name | What would you like us to call you?</div></div><div class="application-field full-width"><input type="text" name="cards[a69a][field1]" data-expect="none"></div></div></li>
+    <li class="application-question custom-question"><div><div class="application-label full-width multiple-choice"><div class="text">Are you legally authorized to work in the country for which you are applying?<span class="required">✱</span></div></div><div class="application-field full-width required-field"><ul>
+      <li><label><input type="radio" name="cards[1c71][field0]" value="Yes" data-expect="none"><span class="application-answer-alternative">Yes</span></label></li>
+      <li><label><input type="radio" name="cards[1c71][field0]" value="No" data-expect="none"><span class="application-answer-alternative">No</span></label></li>
+    </ul></div></div></li>
+    <li class="application-question custom-question"><div><div class="application-label full-width dropdown"><div class="text">Which university are you currently attending or did you last attend? Please select "Other" if your university is not listed.</div></div><div class="application-field full-width"><div class="application-dropdown"><select name="cards[3da5][field0]" data-expect="school"><option value="">Select...</option><option value="Other">Other</option></select></div></div></div></li>
+    <li class="application-question custom-question"><div><div class="application-label full-width dropdown"><div class="text">Please tell us how you heard about this opportunity.<span class="required">✱</span></div></div><div class="application-field full-width required-field"><div class="application-dropdown"><select name="cards[a619][field0]" data-expect="none"><option value="">Select...</option><option value="LinkedIn">LinkedIn</option><option value="Referral">Referral</option></select></div></div></div></li>
+    <li class="application-question custom-question"><div><div class="application-label full-width textarea"><div class="text">Why do you want to work here?</div></div><div class="application-field full-width"><textarea name="cards[ce72][field1]" data-expect="none"></textarea></div></div></li>
+  </ul>
+  <label><input type="checkbox" name="consent[marketing]" value="1" data-expect="none"> I consent to be contacted about future job opportunities.</label>
+</form>
