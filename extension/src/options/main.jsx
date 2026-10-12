@@ -6,6 +6,7 @@ import { initTheme, IconButton, ToastProvider, useToast, cn } from '../ui'
 import { useExtensionData, useRoute, send, go } from './data'
 import ProfilePage from './ProfilePage'
 import SitesPage from './SitesPage'
+import SnippetsPage from './SnippetsPage'
 import SettingsPage from './SettingsPage'
 import BackupPage from './BackupPage'
 import AboutPage from './AboutPage'
@@ -13,6 +14,7 @@ import AboutPage from './AboutPage'
 initTheme()
 
 const PAGES = [
+  { id: 'snippets', label: 'Snippets' },
   { id: 'sites', label: 'Sites' },
   { id: 'settings', label: 'Settings' },
   { id: 'backup', label: 'Backup' },
@@ -90,6 +92,7 @@ function Options() {
 
   let content
   if (route.page === 'sites') content = <SitesPage data={data} />
+  else if (route.page === 'snippets') content = <SnippetsPage data={data} />
   else if (route.page === 'settings') content = <SettingsPage data={data} />
   else if (route.page === 'backup') content = <BackupPage data={data} toast={toast} />
   else if (route.page === 'about') content = <AboutPage />

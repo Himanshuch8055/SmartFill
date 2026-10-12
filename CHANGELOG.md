@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- Text snippets: save text under a shortcut like `;addr`, then type the shortcut in any text field or editor to insert it. `{date}` and `{time}` are filled in when inserted. Never runs in password or payment fields, or on sites you turned off. Manage them on the new Snippets page in Settings.
+
 ## [1.1.0] - 2026-10-12
 
 ### Added

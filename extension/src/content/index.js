@@ -4,6 +4,7 @@ import { PROFILE_FIELDS } from '../lib/profileFields'
 import { showPreview, showToast, showFieldPrompt } from './preview'
 import { mountWidget } from './widget'
 import { buildSelector } from '../lib/selector'
+import { expandAtCaret } from '../lib/snippets'
 
 console.debug('SmartFill content script loaded')
 
@@ -62,6 +63,34 @@ function applyWidgetState(widgetEnabled, blockedSites) {
     })
   } catch {}
 })()
+
+// ---------- Snippets ----------
+// Typing a saved shortcut (like ";addr") in a text field replaces it with the saved text.
+
+let snippets = []
+let snippetsOn = true
+
+async function loadSnippets() {
+  try {
+    const { snippets: list, snippetsEnabled, blockedSites } = await chrome.storage.local.get(['snippets', 'snippetsEnabled', 'blockedSites'])
+    snippets = Array.isArray(list) ? list : []
+    snippetsOn = snippetsEnabled !== false && !(Array.isArray(blockedSites) && blockedSites.includes(location.host))
+  } catch {}
+}
+loadSnippets()
+try {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && ('snippets' in changes || 'snippetsEnabled' in changes || 'blockedSites' in changes)) loadSnippets()
+  })
+} catch {}
+
+document.addEventListener('input', (e) => {
+  if (!snippetsOn || !snippets.length || e.isComposing || e.inputType !== 'insertText' || !e.isTrusted) return
+  try {
+    const target = e.composedPath?.()[0] || e.target
+    expandAtCaret(target, snippets, e.data || '')
+  } catch {}
+}, true)
 
 // ---------- Autofill ----------
 
