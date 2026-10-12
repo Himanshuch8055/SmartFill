@@ -11,16 +11,17 @@ import HistoryPage from './HistoryPage'
 import SettingsPage from './SettingsPage'
 import BackupPage from './BackupPage'
 import AboutPage from './AboutPage'
+import { t, mark, initLanguage } from '../lib/i18n'
 
 initTheme()
 
 const PAGES = [
-  { id: 'snippets', label: 'Snippets' },
-  { id: 'history', label: 'History' },
-  { id: 'sites', label: 'Sites' },
-  { id: 'settings', label: 'Settings' },
-  { id: 'backup', label: 'Backup' },
-  { id: 'about', label: 'About' },
+  { id: 'snippets', label: mark('Snippets') },
+  { id: 'history', label: mark('History') },
+  { id: 'sites', label: mark('Sites') },
+  { id: 'settings', label: mark('Settings') },
+  { id: 'backup', label: mark('Backup') },
+  { id: 'about', label: mark('About') },
 ]
 
 function NavItem({ active, onClick, children, trailing }) {
@@ -42,13 +43,13 @@ function NavItem({ active, onClick, children, trailing }) {
 
 function Sidebar({ data, route }) {
   const createProfile = async () => {
-    const res = await send({ type: 'CREATE_PROFILE', name: 'New profile', data: {} })
+    const res = await send({ type: 'CREATE_PROFILE', name: t('New profile'), data: {} })
     if (res?.id) go(`/profile/${res.id}`)
   }
   const openId = route.page === 'profile' ? route.id || data.activeId : ''
 
   return (
-    <nav aria-label="Settings" className="md:w-56 md:shrink-0 md:h-screen md:sticky md:top-0 md:border-r border-b md:border-b-0 border-line bg-surface md:flex md:flex-col">
+    <nav aria-label={t('Settings')} className="md:w-56 md:shrink-0 md:h-screen md:sticky md:top-0 md:border-r border-b md:border-b-0 border-line bg-surface md:flex md:flex-col">
       <div className="h-12 md:h-14 px-5 flex items-center">
         <span className="text-[15px] font-semibold tracking-[-0.01em]">SmartFill</span>
       </div>
@@ -56,8 +57,8 @@ function Sidebar({ data, route }) {
       {/* Wide screens: vertical sidebar. Narrow screens: one horizontally scrolling row. */}
       <div className="px-3 pb-2 md:pb-3 md:flex-1 md:overflow-y-auto flex md:block gap-1 overflow-x-auto">
         <div className="hidden md:flex items-center justify-between px-2.5 mt-1 mb-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Profiles</span>
-          <IconButton icon={Plus} label="New profile" size="sm" className="h-6 w-6 -mr-1" onClick={createProfile} />
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">{t('Profiles')}</span>
+          <IconButton icon={Plus} label={t('New profile')} size="sm" className="h-6 w-6 -mr-1" onClick={createProfile} />
         </div>
         <div className="flex md:block gap-1 md:space-y-0.5 shrink-0">
           {data.profiles.map((p) => (
@@ -65,18 +66,18 @@ function Sidebar({ data, route }) {
               key={p.id}
               active={openId === p.id}
               onClick={() => go(`/profile/${p.id}`)}
-              trailing={p.id === data.activeId && <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" title="Active profile" aria-label="Active" />}
+              trailing={p.id === data.activeId && <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" title={t('Active profile')} aria-label={t('Active')} />}
             >
-              {p.name || 'Profile'}
+              {p.name || t('Profile')}
             </NavItem>
           ))}
-          <IconButton icon={Plus} label="New profile" size="sm" className="md:hidden shrink-0" onClick={createProfile} />
+          <IconButton icon={Plus} label={t('New profile')} size="sm" className="md:hidden shrink-0" onClick={createProfile} />
         </div>
         <span aria-hidden className="md:hidden w-px my-1.5 bg-line shrink-0" />
         <div className="flex md:block gap-1 md:mt-6 md:space-y-0.5 shrink-0">
           {PAGES.map((pg) => (
             <NavItem key={pg.id} active={route.page === pg.id} onClick={() => go(`/${pg.id}`)}>
-              {pg.label}
+              {t(pg.label)}
             </NavItem>
           ))}
         </div>
@@ -114,10 +115,18 @@ function Options() {
   )
 }
 
-createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <ToastProvider>
-      <Options />
-    </ToastProvider>
-  </React.StrictMode>
+try {
+  chrome.storage.onChanged.addListener((c, area) => {
+    if (area === 'local' && 'language' in c) location.reload()
+  })
+} catch {}
+
+initLanguage().then(() =>
+  createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      <ToastProvider>
+        <Options />
+      </ToastProvider>
+    </React.StrictMode>
+  )
 )

@@ -5,11 +5,11 @@ import { showPreview, showToast, showFieldPrompt } from './preview'
 import { mountWidget } from './widget'
 import { buildSelector } from '../lib/selector'
 import { expandAtCaret } from '../lib/snippets'
+import { t, tn, initLanguage } from '../lib/i18n'
 
 console.debug('SmartFill content script loaded')
 
 const isTop = window === window.top
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // ---------- On-page button ----------
 // Shown only in the top frame, when enabled, when the site isn't turned off,
@@ -24,9 +24,9 @@ const widgetActions = {
   async fill() {
     try {
       const res = await chrome.runtime.sendMessage({ type: 'AUTOFILL_ACTIVE' })
-      if (!res?.ok) showToast(res?.error || "Couldn't fill this page.", { tone: 'danger' })
+      if (!res?.ok) showToast(res?.error || t("Couldn't fill this page."), { tone: 'danger' })
     } catch {
-      showToast("Couldn't fill this page.", { tone: 'danger' })
+      showToast(t("Couldn't fill this page."), { tone: 'danger' })
     }
   },
 }
@@ -44,6 +44,7 @@ function applyWidgetState(widgetEnabled, blockedSites) {
 }
 
 ;(async () => {
+  await initLanguage()
   try {
     const { widgetEnabled, blockedSites } = await chrome.storage.local.get(['widgetEnabled', 'blockedSites'])
     applyWidgetState(widgetEnabled, blockedSites)
@@ -52,6 +53,10 @@ function applyWidgetState(widgetEnabled, blockedSites) {
   try {
     chrome.storage.onChanged.addListener(async (changes, area) => {
       if (area !== 'local') return
+      if ('language' in changes) {
+        await initLanguage()
+        widget?.setCount(lastCount)
+      }
       if ('profiles' in changes || 'activeProfileId' in changes || 'siteProfiles' in changes) {
         fillContext = null // answers or resume may have changed
         if (isTop) reportFieldCount()
@@ -220,16 +225,17 @@ function buildFillPlan(rawProfile = {}, rules = [], resume = null) {
 }
 
 const FIELD_LABELS = Object.fromEntries(PROFILE_FIELDS.map((f) => [f.name, f.label]))
+const fieldLabel = (key) => (FIELD_LABELS[key] ? t(FIELD_LABELS[key]) : key)
 
 function previewEntries(map, profile) {
   const entries = []
   for (const [key, targets] of Object.entries(map)) {
-    for (const t of targets) {
+    for (const target of targets) {
       entries.push({
         key,
-        target: t,
-        el: Array.isArray(t) ? t[0] : t,
-        label: key.startsWith('__fixed_') ? 'Rule' : key.startsWith('__answer_') ? 'Answer' : key === '__resume' ? 'Resume' : FIELD_LABELS[key] || key,
+        target,
+        el: Array.isArray(target) ? target[0] : target,
+        label: key.startsWith('__fixed_') ? t('Rule') : key.startsWith('__answer_') ? t('Answer') : key === '__resume' ? t('Resume') : fieldLabel(key),
         value: key === '__resume' ? profile.__resume.name : profile[key],
       })
     }
@@ -248,8 +254,8 @@ function runFill(map, profile, { continuation = false } = {}) {
   const { filled } = fillFields(map, profile)
   if (filled) {
     lastSnapshot = snap
-    showToast(continuation ? `Filled ${plural(filled, 'more field')}.` : `Filled ${plural(filled, 'field')}.`, {
-      actionLabel: 'Undo',
+    showToast(continuation ? tn(filled, 'Filled {n} more field.', 'Filled {n} more fields.') : tn(filled, 'Filled {n} field.', 'Filled {n} fields.'), {
+      actionLabel: t('Undo'),
       onAction: undoFill,
       timeout: 10000,
     })
@@ -257,7 +263,7 @@ function runFill(map, profile, { continuation = false } = {}) {
     chrome.runtime.sendMessage({ type: 'FILL_DONE', filled, continuation }).catch(() => {})
     startFillSession()
   } else if (isTop && !continuation) {
-    showToast('No fields to fill on this page.')
+    showToast(t('No fields to fill on this page.'))
   }
   return filled
 }
@@ -312,7 +318,7 @@ function undoFill() {
   if (!lastSnapshot) return 0
   const n = restore(lastSnapshot)
   lastSnapshot = null
-  showToast(`Restored ${plural(n, 'field')}.`)
+  showToast(tn(n, 'Restored {n} field.', 'Restored {n} fields.'))
   return n
 }
 
@@ -328,17 +334,17 @@ function normValue(v) {
 }
 
 function offerRule(el, key) {
-  const label = FIELD_LABELS[key] || key
+  const label = fieldLabel(key)
   const host = location.host
-  showFieldPrompt(el, `Always fill this field with your ${label} on ${host}?`, {
-    actionLabel: 'Remember',
+  showFieldPrompt(el, t('Always fill this field with your {label} on {host}?', { label, host }), {
+    actionLabel: t('Remember'),
     onAction: async () => {
       try {
         const rule = { sitePattern: host, selector: buildSelector(el), key }
         const res = await chrome.runtime.sendMessage({ type: 'ADD_RULE', rule })
-        showToast(res?.ok ? `Saved. SmartFill will remember this field on ${host}.` : "Couldn't save that.")
+        showToast(res?.ok ? t('Saved. SmartFill will remember this field on {host}.', { host }) : t("Couldn't save that."))
       } catch {
-        showToast("Couldn't save that.")
+        showToast(t("Couldn't save that."))
       }
     },
   })
@@ -401,7 +407,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (msg.preview && count) {
         const entries = previewEntries(map, profile)
         showPreview(entries, {
-          hint: continuation ? 'Next step · Click a label to skip it' : undefined,
+          hint: continuation ? t('Next step · Click a label to skip it') : undefined,
           // Fill only the fields the user didn't skip in the preview.
           onConfirm: (skipped) => {
             const chosen = {}
@@ -427,7 +433,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     case 'FILL_FIELD': {
       const el = lastContextTarget
       if (!el?.isConnected) {
-        sendResponse({ ok: false, error: 'No field selected' })
+        sendResponse({ ok: false, error: t('No field selected') })
         return false
       }
       const profile = deriveProfile(msg.profile || {})
@@ -438,7 +444,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         lastSnapshot = snap
         // An explicit "fill this field with X" is a strong hint: offer to remember it.
         offerRule(el, msg.key)
-      } else showToast(`Your profile has no ${FIELD_LABELS[msg.key] || msg.key} yet.`)
+      } else showToast(t('Your profile has no {label} yet.', { label: fieldLabel(msg.key) }))
       sendResponse({ ok: true, filled })
       return false
     }

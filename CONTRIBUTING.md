@@ -7,7 +7,8 @@ Thanks for helping make form filling less painful! This guide covers how to repo
 - **Report a site where SmartFill fills incorrectly.** This is the most valuable contribution. Use the *Site not filling correctly* issue template and include the page URL (if public) and which fields went wrong.
 - **Report bugs** or **suggest features** using the issue templates.
 - **Fix detection** for a site by adding a test fixture (see below).
-- **Improve docs, translations and the website.**
+- **Translate SmartFill** into your language (see *Translations* below).
+- **Improve docs and the website.**
 
 Please search existing issues before opening a new one. For larger changes, open an issue first so we can agree on the approach.
 
@@ -51,6 +52,14 @@ Project structure (extension):
 2. Add `data-expect="<key>"` to every field (`email`, `firstName`, `phone`, …), or `data-expect="none"` for fields that must not be filled. Valid keys are listed in `FIELD_SPECS` in `src/lib/detectFields.js`.
 3. Run `npm test`. Failures list each mismatched field.
 4. Adjust the patterns in `FIELD_SPECS`. Prefer narrow, specific patterns, and make sure all other fixtures still pass.
+
+## Translations
+
+UI text is written in English and wrapped in `t('…')` (or `tn(n, one, other)` for plurals) from `src/lib/i18n.js`. The English text is the key, so untranslated strings fall back to English.
+
+- **Add a language:** copy `src/locales/hi.js` to `src/locales/<code>.js`, translate the values, register it in `DICTIONARIES` and `LANGUAGES` in `src/lib/i18n.js`, and add `public/_locales/<code>/messages.json` (store name, description and shortcut names).
+- **Find missing strings:** `node scripts/i18n-strings.mjs --missing hi`. `npm test` fails if any string has no Hindi translation, so new UI text needs a Hindi entry too (ask in the PR if you can't write one).
+- Keep `{placeholders}` unchanged. Don't call `t()` at module top level; use `mark('…')` for constants and `t(value)` when rendering.
 
 ## Branches, commits and pull requests
 

@@ -3,8 +3,9 @@
 
 export default {
   manifest_version: 3,
-  name: "SmartFill",
-  description: "Fill forms in one click from your saved profiles. Preview, undo, per-site rules. Your data never leaves your browser.",
+  name: "__MSG_appName__",
+  description: "__MSG_appDesc__",
+  default_locale: "en",
   version: "1.1.0",
   icons: {
     16: "icons/icon16.png",
@@ -21,7 +22,7 @@ export default {
     }
   },
   action: {
-    default_title: "SmartFill",
+    default_title: "__MSG_actionTitle__",
     default_popup: "popup.html",
     default_icon: {
       16: "icons/icon16.png",
@@ -41,15 +42,15 @@ export default {
   commands: {
     "fill-form": {
       suggested_key: { default: "Alt+Shift+F" },
-      description: "Fill the form on this page"
+      description: "__MSG_cmdFill__"
     },
     "undo-fill": {
       suggested_key: { default: "Alt+Shift+Z" },
-      description: "Undo the last fill"
+      description: "__MSG_cmdUndo__"
     },
     "next-profile": {
       suggested_key: { default: "Alt+Shift+P" },
-      description: "Switch to the next profile"
+      description: "__MSG_cmdNextProfile__"
     }
   },
   content_scripts: [

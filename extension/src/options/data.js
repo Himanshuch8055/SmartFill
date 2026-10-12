@@ -4,7 +4,7 @@ import React from 'react'
 
 export const send = (msg) => chrome.runtime.sendMessage(msg)
 
-const SETTING_KEYS = ['popupProfileIds', 'widgetEnabled', 'fillMode', 'continueFill', 'snippets', 'snippetsEnabled', 'fillHistory', 'historyEnabled', 'testDataEnabled', 'theme', 'rules', 'blockedSites', 'siteProfiles']
+const SETTING_KEYS = ['popupProfileIds', 'widgetEnabled', 'fillMode', 'continueFill', 'snippets', 'snippetsEnabled', 'fillHistory', 'historyEnabled', 'testDataEnabled', 'theme', 'language', 'rules', 'blockedSites', 'siteProfiles']
 
 export function useExtensionData() {
   const [data, setData] = React.useState(null)
@@ -24,6 +24,7 @@ export function useExtensionData() {
       historyEnabled: local.historyEnabled !== false,
       testDataEnabled: local.testDataEnabled === true,
       theme: local.theme || 'system',
+      language: local.language || 'auto',
       rules: local.rules || [],
       blockedSites: local.blockedSites || [],
       siteProfiles: local.siteProfiles || {},

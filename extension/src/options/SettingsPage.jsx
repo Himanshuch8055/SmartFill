@@ -1,6 +1,7 @@
 import React from 'react'
-import { Switch, SegmentedControl, Checkbox, setThemePreference } from '../ui'
+import { Switch, SegmentedControl, Checkbox, Select, setThemePreference } from '../ui'
 import { PageHeader, Group, SettingRow, TextButton } from './layout'
+import { t, LANGUAGES } from '../lib/i18n'
 
 const isFirefox = /firefox/i.test(navigator.userAgent)
 
@@ -31,80 +32,87 @@ export default function SettingsPage({ data }) {
 
   return (
     <div>
-      <PageHeader title="Settings" />
+      <PageHeader title={t('Settings')} />
 
-      <Group title="Filling">
+      <Group title={t('Filling')}>
         <SettingRow
-          label="Preview before filling"
-          description="Highlight the fields SmartFill will fill and confirm first. Every fill can be undone either way."
+          label={t('Preview before filling')}
+          description={t('Highlight the fields SmartFill will fill and confirm first. Every fill can be undone either way.')}
           htmlFor="set-preview"
         >
           <Switch id="set-preview" checked={data.fillMode === 'preview'} onChange={(on) => set({ fillMode: on ? 'preview' : 'instant' })} />
         </SettingRow>
         <SettingRow
-          label="Keep filling on the next steps of a form"
-          description="After you fill one step of a long form, SmartFill fills the next steps too. It only fills empty fields and never changes what you typed."
+          label={t('Keep filling on the next steps of a form')}
+          description={t('After you fill one step of a long form, SmartFill fills the next steps too. It only fills empty fields and never changes what you typed.')}
           htmlFor="set-continue"
         >
           <Switch id="set-continue" checked={data.continueFill} onChange={(on) => set({ continueFill: on })} />
         </SettingRow>
         <SettingRow
-          label="Show button on pages"
-          description="A small SmartFill button in the corner of pages with forms."
+          label={t('Show button on pages')}
+          description={t('A small SmartFill button in the corner of pages with forms.')}
           htmlFor="set-widget"
         >
           <Switch id="set-widget" checked={data.widgetEnabled} onChange={(on) => set({ widgetEnabled: on })} />
         </SettingRow>
       </Group>
 
-      <Group title="Developers">
+      <Group title={t('Developers')}>
         <SettingRow
-          label="Fill with test data"
-          description="Adds Fill with test data to the popup and right-click menu. Each fill uses a new made-up person, with example.com emails and fake phone numbers, for testing your own forms."
+          label={t('Fill with test data')}
+          description={t('Adds Fill with test data to the popup and right-click menu. Each fill uses a new made-up person, with example.com emails and fake phone numbers, for testing your own forms.')}
           htmlFor="set-testdata"
         >
           <Switch id="set-testdata" checked={data.testDataEnabled} onChange={(on) => set({ testDataEnabled: on })} />
         </SettingRow>
       </Group>
 
-      <Group title="Appearance">
-        <SettingRow label="Theme">
+      <Group title={t('Appearance')}>
+        <SettingRow label={t('Theme')}>
           <SegmentedControl
-            label="Theme"
+            label={t('Theme')}
             size="sm"
             value={data.theme}
             onChange={setThemePreference}
             options={[
-              { value: 'system', label: 'System' },
-              { value: 'light', label: 'Light' },
-              { value: 'dark', label: 'Dark' },
+              { value: 'system', label: t('System') },
+              { value: 'light', label: t('Light') },
+              { value: 'dark', label: t('Dark') },
             ]}
           />
+        </SettingRow>
+        <SettingRow label={t('Language')} htmlFor="set-language">
+          <Select id="set-language" value={data.language} onChange={(e) => set({ language: e.target.value })}>
+            {LANGUAGES.map((l) => (
+              <option key={l.id} value={l.id}>{l.id === 'auto' ? t('Same as browser') : l.label}</option>
+            ))}
+          </Select>
         </SettingRow>
       </Group>
 
       {data.profiles.length > 1 && (
-        <Group title="Profiles in the popup" description="Choose which profiles appear in the popup's profile menu.">
+        <Group title={t('Profiles in the popup')} description={t("Choose which profiles appear in the popup's profile menu.")}>
           {data.profiles.map((p) => (
             <div key={p.id} className="px-4 py-2.5">
-              <Checkbox label={p.name || 'Profile'} checked={shownInPopup(p.id)} onChange={(on) => togglePopupProfile(p.id, on)} />
+              <Checkbox label={p.name || t('Profile')} checked={shownInPopup(p.id)} onChange={(on) => togglePopupProfile(p.id, on)} />
             </div>
           ))}
         </Group>
       )}
 
       <Group
-        title="Keyboard shortcuts"
-        aside={!isFirefox && <TextButton onClick={openShortcutSettings}>Change shortcuts</TextButton>}
+        title={t('Keyboard shortcuts')}
+        aside={!isFirefox && <TextButton onClick={openShortcutSettings}>{t('Change shortcuts')}</TextButton>}
       >
         {shortcuts.filter((c) => c.description).map((c) => (
           <div key={c.name} className="flex items-center justify-between px-4 py-2.5 text-[13px]">
             <span>{c.description}</span>
-            <span className="text-fg-muted">{c.shortcut || 'Not set'}</span>
+            <span className="text-fg-muted">{c.shortcut || t('Not set')}</span>
           </div>
         ))}
         {isFirefox && (
-          <p className="px-4 py-2.5 text-[12px] text-fg-muted">To change shortcuts, open about:addons → ⚙ → Manage Extension Shortcuts.</p>
+          <p className="px-4 py-2.5 text-[12px] text-fg-muted">{t('To change shortcuts, open about:addons → ⚙ → Manage Extension Shortcuts.')}</p>
         )}
       </Group>
     </div>

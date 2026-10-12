@@ -7,6 +7,7 @@ import { findFillableInputs, fillFields, snapshot, restore, deriveProfile } from
 import { PROFILE_FIELDS } from '../lib/profileFields'
 import { showPreview } from '../content/preview'
 import { PRIVACY_URL } from '../lib/links'
+import { t, tn, mark, initLanguage } from '../lib/i18n'
 
 initTheme()
 
@@ -15,10 +16,10 @@ const isFirefox = /firefox/i.test(navigator.userAgent)
 const LABELS = Object.fromEntries(PROFILE_FIELDS.map((f) => [f.name, f.label]))
 
 const DETAILS = [
-  { name: 'fullName', label: 'Full name', placeholder: 'Asha Verma', autoComplete: 'name' },
-  { name: 'email', label: 'Email', placeholder: 'asha@example.com', type: 'email', autoComplete: 'email' },
-  { name: 'phone', label: 'Phone', placeholder: '+91 98765 43210', type: 'tel', autoComplete: 'tel' },
-  { name: 'city', label: 'City', placeholder: 'Pune', autoComplete: 'address-level2' },
+  { name: 'fullName', label: mark('Full name'), placeholder: 'Asha Verma', autoComplete: 'name' },
+  { name: 'email', label: mark('Email'), placeholder: 'asha@example.com', type: 'email', autoComplete: 'email' },
+  { name: 'phone', label: mark('Phone'), placeholder: '+91 98765 43210', type: 'tel', autoComplete: 'tel' },
+  { name: 'city', label: mark('City'), placeholder: 'Pune', autoComplete: 'address-level2' },
 ]
 
 // ---------- step shell ----------
@@ -43,12 +44,12 @@ function Step({ index, title, summary, state, onEdit, children }) {
       </span>
       <div className="flex items-baseline justify-between gap-4 min-h-8 pt-1">
         <h2 className={cn('text-[15px] font-semibold', !done && !open && 'text-fg-subtle')}>
-          <span className="sr-only">Step {index}: </span>
+          <span className="sr-only">{t('Step {index}: ', { index })}</span>
           {title}
         </h2>
         {done && onEdit && (
           <button type="button" onClick={onEdit} className="text-[13px] text-fg-muted hover:text-fg hover:underline underline-offset-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus/60">
-            Edit
+            {t('Edit')}
           </button>
         )}
       </div>
@@ -72,10 +73,10 @@ function DetailsStep({ data, setData, onDone }) {
   }
   return (
     <form onSubmit={save}>
-      <p className="text-[13px] text-fg-muted mb-4">The basics most forms ask for. You can add work, address and more later.</p>
+      <p className="text-[13px] text-fg-muted mb-4">{t('The basics most forms ask for. You can add work, address and more later.')}</p>
       <div className="grid sm:grid-cols-2 gap-4">
         {DETAILS.map((f) => (
-          <Field key={f.name} label={f.label}>
+          <Field key={f.name} label={t(f.label)}>
             <Input
               type={f.type || 'text'}
               placeholder={f.placeholder}
@@ -87,8 +88,8 @@ function DetailsStep({ data, setData, onDone }) {
         ))}
       </div>
       <div className="mt-5 flex items-center gap-3">
-        <Button type="submit" variant="primary" loading={saving} disabled={!filled}>Save and continue</Button>
-        <span className="text-[12px] text-fg-subtle">Saved only in this browser.</span>
+        <Button type="submit" variant="primary" loading={saving} disabled={!filled}>{t('Save and continue')}</Button>
+        <span className="text-[12px] text-fg-subtle">{t('Saved only in this browser.')}</span>
       </div>
     </form>
   )
@@ -107,7 +108,7 @@ function PinIllustration() {
         <span className="h-5 w-5 rounded-full bg-line" />
       </div>
       <div className="ml-auto mt-1.5 w-56 rounded-md bg-surface border border-line shadow-sf-md p-1.5">
-        <p className="px-1.5 pb-1 text-[11px] text-fg-subtle">Extensions</p>
+        <p className="px-1.5 pb-1 text-[11px] text-fg-subtle">{t('Extensions')}</p>
         <div className="flex items-center gap-2 rounded px-1.5 h-8 bg-surface-2">
           <Logo size={16} />
           <span className="text-[12px] flex-1">SmartFill</span>
@@ -125,18 +126,22 @@ function PinStep({ onDone }) {
     <div>
       {isFirefox ? (
         <p className="text-[13px] text-fg-muted mb-4">
-          Click the <b className="text-fg">Extensions</b> button (puzzle piece) in the toolbar, then the gear next to SmartFill and choose <b className="text-fg">Pin to Toolbar</b>.
+          {t('Click the {extensions} button (puzzle piece) in the toolbar, then the gear next to SmartFill and choose {pin}.', { extensions: '\u0001', pin: '\u0002' }).split(/(\u0001|\u0002)/).map((part, i) =>
+            part === '\u0001' ? <b key={i} className="text-fg">{t('Extensions')}</b> : part === '\u0002' ? <b key={i} className="text-fg">{t('Pin to Toolbar')}</b> : part
+          )}
         </p>
       ) : (
         <p className="text-[13px] text-fg-muted mb-4">
-          Click the <b className="text-fg">Extensions</b> button (puzzle piece) in the toolbar, then the <b className="text-fg">pin</b> next to SmartFill.
+          {t('Click the {extensions} button (puzzle piece) in the toolbar, then the {pin} next to SmartFill.', { extensions: '\u0001', pin: '\u0002' }).split(/(\u0001|\u0002)/).map((part, i) =>
+            part === '\u0001' ? <b key={i} className="text-fg">{t('Extensions')}</b> : part === '\u0002' ? <b key={i} className="text-fg">{t('pin')}</b> : part
+          )}
         </p>
       )}
       <PinIllustration />
       <div className="mt-5 flex items-center gap-3">
-        <Button variant="primary" onClick={onDone}>Done</Button>
+        <Button variant="primary" onClick={onDone}>{t('Done')}</Button>
         <button type="button" onClick={onDone} className="text-[13px] text-fg-muted hover:text-fg hover:underline underline-offset-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus/60">
-          Skip
+          {t('Skip')}
         </button>
       </div>
     </div>
@@ -186,7 +191,7 @@ function TryStep({ onDone }) {
   return (
     <div>
       <p className="text-[13px] text-fg-muted mb-4">
-        Here's a sample form. SmartFill highlights what it will fill so you can check it first. Click a highlighted label to skip that field.
+        {t("Here's a sample form. SmartFill highlights what it will fill so you can check it first. Click a highlighted label to skip that field.")}
       </p>
 
       {/* Looks like an ordinary website form, not like SmartFill's own UI */}
@@ -204,15 +209,15 @@ function TryStep({ onDone }) {
       </form>
 
       <div className="mt-5 flex flex-wrap items-center gap-3 min-h-9">
-        <Button variant="primary" onClick={tryIt}>Fill with SmartFill</Button>
+        <Button variant="primary" onClick={tryIt}>{t('Fill with SmartFill')}</Button>
         <p aria-live="polite" className="text-[13px]">
-          {result === 'empty' && <span className="text-fg-muted">Add your details in step 1 first.</span>}
-          {result === 'undone' && <span className="text-fg-muted">Form cleared.</span>}
+          {result === 'empty' && <span className="text-fg-muted">{t('Add your details in step 1 first.')}</span>}
+          {result === 'undone' && <span className="text-fg-muted">{t('Form cleared.')}</span>}
           {result?.filled != null && (
             <span className="text-success">
-              Filled {result.filled} field{result.filled === 1 ? '' : 's'}.{' '}
+              {tn(result.filled, 'Filled {n} field.', 'Filled {n} fields.')}{' '}
               <button type="button" onClick={undo} className="text-accent-text font-medium hover:underline underline-offset-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus/60">
-                Undo
+                {t('Undo')}
               </button>
             </span>
           )}
@@ -220,7 +225,7 @@ function TryStep({ onDone }) {
       </div>
       {result?.filled != null && (
         <div className="mt-5">
-          <Button onClick={onDone}>Finish</Button>
+          <Button onClick={onDone}>{t('Finish')}</Button>
         </div>
       )}
     </div>
@@ -232,13 +237,13 @@ function TryStep({ onDone }) {
 function AllSet() {
   return (
     <section className="mt-10 rounded-xl border border-line bg-surface p-5">
-      <h2 className="text-[15px] font-semibold">You're all set</h2>
-      <p className="text-[13px] text-fg-muted mt-1">On any form, click SmartFill in the toolbar or the button at the edge of the page.</p>
+      <h2 className="text-[15px] font-semibold">{t("You're all set")}</h2>
+      <p className="text-[13px] text-fg-muted mt-1">{t('On any form, click SmartFill in the toolbar or the button at the edge of the page.')}</p>
       <dl className="mt-4 grid gap-2 text-[13px]">
         {[
-          [['Alt', 'Shift', 'F'], 'Fill the form'],
-          [['Alt', 'Shift', 'Z'], 'Undo the last fill'],
-          [['Alt', 'Shift', 'P'], 'Switch profile'],
+          [['Alt', 'Shift', 'F'], t('Fill the form')],
+          [['Alt', 'Shift', 'Z'], t('Undo the last fill')],
+          [['Alt', 'Shift', 'P'], t('Switch profile')],
         ].map(([keys, label]) => (
           <div key={label} className="flex items-center gap-3">
             <dt className="w-32"><Kbd keys={keys} /></dt>
@@ -246,13 +251,13 @@ function AllSet() {
           </div>
         ))}
         <div className="flex items-center gap-3">
-          <dt className="w-32 text-fg-muted">Right-click</dt>
-          <dd className="text-fg-muted">Fill a single field</dd>
+          <dt className="w-32 text-fg-muted">{t('Right-click')}</dt>
+          <dd className="text-fg-muted">{t('Fill a single field')}</dd>
         </div>
       </dl>
       <div className="mt-5 flex gap-2">
-        <Button variant="primary" onClick={() => chrome.runtime.openOptionsPage()}>Add more details</Button>
-        <Button onClick={() => window.close()}>Close</Button>
+        <Button variant="primary" onClick={() => chrome.runtime.openOptionsPage()}>{t('Add more details')}</Button>
+        <Button onClick={() => window.close()}>{t('Close')}</Button>
       </div>
     </section>
   )
@@ -279,18 +284,18 @@ function Welcome() {
       <div className="max-w-xl mx-auto px-5 py-12 sm:py-16">
         <header className="mb-10">
           <Logo size={40} />
-          <h1 className="mt-5 text-2xl font-semibold tracking-[-0.02em]">Welcome to SmartFill</h1>
-          <p className="mt-1.5 text-[14px] text-fg-muted">Three quick steps and you're ready to fill forms in one click.</p>
+          <h1 className="mt-5 text-2xl font-semibold tracking-[-0.02em]">{t('Welcome to SmartFill')}</h1>
+          <p className="mt-1.5 text-[14px] text-fg-muted">{t("Three quick steps and you're ready to fill forms in one click.")}</p>
         </header>
 
         <ol>
-          <Step index={1} title="Add your details" state={state(1)} summary={detailsSummary} onEdit={() => setStep(1)}>
+          <Step index={1} title={t('Add your details')} state={state(1)} summary={detailsSummary} onEdit={() => setStep(1)}>
             <DetailsStep data={data} setData={setData} onDone={() => setStep(2)} />
           </Step>
-          <Step index={2} title="Pin SmartFill to your toolbar" state={state(2)} summary="Pinned, or skipped for now." onEdit={() => setStep(2)}>
+          <Step index={2} title={t('Pin SmartFill to your toolbar')} state={state(2)} summary={t('Pinned, or skipped for now.')} onEdit={() => setStep(2)}>
             <PinStep onDone={() => setStep(3)} />
           </Step>
-          <Step index={3} title="Try it on a sample form" state={state(3)} summary="Done." onEdit={() => setStep(3)}>
+          <Step index={3} title={t('Try it on a sample form')} state={state(3)} summary={t('Done.')} onEdit={() => setStep(3)}>
             <TryStep onDone={() => setStep(4)} />
           </Step>
         </ol>
@@ -298,16 +303,24 @@ function Welcome() {
         {step === 4 && <AllSet />}
 
         <footer className="mt-12 text-[12px] text-fg-subtle">
-          Your details never leave this browser.{' '}
-          <a className="underline underline-offset-2 hover:text-fg-muted" href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy policy</a>
+          {t('Your details never leave this browser.')}{' '}
+          <a className="underline underline-offset-2 hover:text-fg-muted" href={PRIVACY_URL} target="_blank" rel="noreferrer">{t('Privacy policy')}</a>
         </footer>
       </div>
     </main>
   )
 }
 
-createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <Welcome />
-  </React.StrictMode>
+try {
+  chrome.storage.onChanged.addListener((c, area) => {
+    if (area === 'local' && 'language' in c) location.reload()
+  })
+} catch {}
+
+initLanguage().then(() =>
+  createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      <Welcome />
+    </React.StrictMode>
+  )
 )

@@ -4,12 +4,13 @@ import { Button, IconButton, Input } from '../ui'
 import { COMMON_QUESTIONS } from '../lib/answers'
 import { send } from './data'
 import { TextButton } from './layout'
+import { t, tn } from '../lib/i18n'
 
 const MAX_BYTES = 2 * 1024 * 1024
 const ACCEPT = '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 function formatSize(bytes) {
-  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return bytes < 1024 * 1024 ? t('{size} KB', { size: Math.max(1, Math.round(bytes / 1024)) }) : t('{size} MB', { size: (bytes / 1024 / 1024).toFixed(1) })
 }
 
 function readAsDataUrl(file) {
@@ -32,8 +33,8 @@ function ResumeCard({ profileId, meta, onChange }) {
     e.target.value = ''
     if (!file) return
     setError('')
-    if (!/\.(pdf|docx?)$/i.test(file.name)) return setError('Choose a PDF or Word file.')
-    if (file.size > MAX_BYTES) return setError(`${file.name} is ${formatSize(file.size)}. The limit is 2 MB.`)
+    if (!/\.(pdf|docx?)$/i.test(file.name)) return setError(t('Choose a PDF or Word file.'))
+    if (file.size > MAX_BYTES) return setError(t('{name} is {size}. The limit is 2 MB.', { name: file.name, size: formatSize(file.size) }))
     setBusy(true)
     try {
       const resume = { name: file.name, type: file.type, size: file.size, dataUrl: await readAsDataUrl(file) }
@@ -41,7 +42,7 @@ function ResumeCard({ profileId, meta, onChange }) {
       if (!res?.ok) throw new Error(res?.error)
       onChange({ name: resume.name, type: resume.type, size: resume.size })
     } catch (err) {
-      setError(err?.message || "Couldn't save the file.")
+      setError(err?.message || t("Couldn't save the file."))
     } finally {
       setBusy(false)
     }
@@ -64,20 +65,20 @@ function ResumeCard({ profileId, meta, onChange }) {
           {meta ? (
             <>
               <p className="text-[13px] font-medium truncate" title={meta.name}>{meta.name}</p>
-              <p className="text-[12px] text-fg-muted">{formatSize(meta.size)} · attached to resume upload fields</p>
+              <p className="text-[12px] text-fg-muted">{t('{size} · attached to resume upload fields', { size: formatSize(meta.size) })}</p>
             </>
           ) : (
             <>
-              <p className="text-[13px] font-medium">Resume / CV</p>
-              <p className="text-[12px] text-fg-muted">PDF or Word, up to 2 MB. Stored only in this browser.</p>
+              <p className="text-[13px] font-medium">{t('Resume / CV')}</p>
+              <p className="text-[12px] text-fg-muted">{t('PDF or Word, up to 2 MB. Stored only in this browser.')}</p>
             </>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {meta && <TextButton onClick={remove} disabled={busy}>Remove</TextButton>}
-          <Button size="sm" loading={busy} onClick={() => fileRef.current?.click()}>{meta ? 'Replace' : 'Upload'}</Button>
+          {meta && <TextButton onClick={remove} disabled={busy}>{t('Remove')}</TextButton>}
+          <Button size="sm" loading={busy} onClick={() => fileRef.current?.click()}>{meta ? t('Replace') : t('Upload')}</Button>
         </div>
-        <input ref={fileRef} type="file" accept={ACCEPT} className="hidden" aria-label="Resume file" onChange={pick} />
+        <input ref={fileRef} type="file" accept={ACCEPT} className="hidden" aria-label={t('Resume file')} onChange={pick} />
       </div>
       {error && <p className="mt-2 text-[12px] text-danger">{error}</p>}
     </div>
@@ -95,29 +96,29 @@ function ScreeningAnswers({ items, onChange }) {
   return (
     <div className="border-t border-line">
       <div className="px-4 pt-4">
-        <p className="text-[13px] font-medium">Screening questions</p>
+        <p className="text-[13px] font-medium">{t('Screening questions')}</p>
         <p className="text-[12px] text-fg-muted mt-0.5">
-          Answers for questions application forms ask. SmartFill matches them by wording, including yes/no dropdowns and options.
+          {t('Answers for questions application forms ask. SmartFill matches them by wording, including yes/no dropdowns and options.')}
         </p>
       </div>
       {items.length > 0 && (
         <div className="px-4 pt-3 space-y-2.5">
           {items.map((it, i) => (
             <div key={i} className="grid grid-cols-[minmax(0,1fr)_160px_auto] gap-2 items-center">
-              <Input aria-label="Question" placeholder="Question, e.g. Are you willing to relocate?" value={it.question} onChange={(e) => update(i, 'question', e.target.value)} />
-              <Input aria-label="Answer" placeholder="Answer" value={it.answer} onChange={(e) => update(i, 'answer', e.target.value)} />
-              <IconButton icon={X} label="Remove question" size="sm" onClick={() => remove(i)} />
+              <Input aria-label={t('Question')} placeholder={t('Question, e.g. Are you willing to relocate?')} value={it.question} onChange={(e) => update(i, 'question', e.target.value)} />
+              <Input aria-label={t('Answer')} placeholder={t('Answer')} value={it.answer} onChange={(e) => update(i, 'answer', e.target.value)} />
+              <IconButton icon={X} label={t('Remove question')} size="sm" onClick={() => remove(i)} />
             </div>
           ))}
         </div>
       )}
       <div className="px-4 py-3 flex flex-wrap gap-x-5 gap-y-2">
         <TextButton onClick={add} className="inline-flex items-center gap-1.5 text-accent-text hover:text-accent-text">
-          <Plus size={14} aria-hidden /> Add question
+          <Plus size={14} aria-hidden /> {t('Add question')}
         </TextButton>
         {missing.length > 0 && (
           <TextButton onClick={() => onChange([...items, ...missing.map((q) => ({ ...q }))])}>
-            Add {missing.length} common question{missing.length === 1 ? '' : 's'}
+            {tn(missing.length, 'Add {n} common question', 'Add {n} common questions')}
           </TextButton>
         )}
       </div>
@@ -129,8 +130,8 @@ export default function JobApplication({ profileId, draft, change, setResumeMeta
   return (
     <section className="mb-10">
       <div className="mb-2">
-        <h2 className="text-[13px] font-semibold">Job applications</h2>
-        <p className="text-[12px] text-fg-muted mt-0.5">Your resume and answers to common screening questions.</p>
+        <h2 className="text-[13px] font-semibold">{t('Job applications')}</h2>
+        <p className="text-[12px] text-fg-muted mt-0.5">{t('Your resume and answers to common screening questions.')}</p>
       </div>
       <div className="rounded-lg border border-line bg-surface">
         <ResumeCard profileId={profileId} meta={draft.resume} onChange={setResumeMeta} />

@@ -2,6 +2,7 @@
 // One click fills the page; everything else lives in the toolbar popup.
 // Drag it up or down along the edge; hover shows what a click will do.
 import { createLayer, el, LOGO_SVG } from './shadow'
+import { t, tn } from '../lib/i18n'
 
 const CSS = `
   /* Only the visible parts take the mouse, so no invisible area covers the page. */
@@ -72,13 +73,13 @@ export function mountWidget(actions) {
   fab.innerHTML = LOGO_SVG
 
   const tip = el('div', 'tip')
-  const tipText = el('button', 'tip-fill', 'Fill this page')
+  const tipText = el('button', 'tip-fill', t('Fill this page'))
   tipText.type = 'button'
   tipText.tabIndex = -1 // the round button is the keyboard target
   const hide = el('button', 'hide')
   hide.type = 'button'
-  hide.setAttribute('aria-label', 'Hide SmartFill on this page')
-  hide.title = 'Hide on this page'
+  hide.setAttribute('aria-label', t('Hide SmartFill on this page'))
+  hide.title = t('Hide on this page')
   hide.innerHTML = CLOSE_SVG
   tip.append(tipText, hide)
 
@@ -182,9 +183,11 @@ export function mountWidget(actions) {
 
   return {
     setCount(n) {
-      const label = n ? `Fill ${n} field${n === 1 ? '' : 's'}` : 'Fill this page'
+      const label = n ? tn(n, 'Fill {n} field', 'Fill {n} fields') : t('Fill this page')
       tipText.textContent = label
-      fab.setAttribute('aria-label', `SmartFill: ${label}`)
+      fab.setAttribute('aria-label', t('SmartFill: {label}', { label }))
+      hide.setAttribute('aria-label', t('Hide SmartFill on this page'))
+      hide.title = t('Hide on this page')
       layer.host.style.display = n && !hidden ? '' : 'none'
     },
     destroy() {

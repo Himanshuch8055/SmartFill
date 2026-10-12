@@ -1,6 +1,7 @@
 import React from 'react'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn, focusRing } from './cn'
+import { t } from '../lib/i18n'
 
 const control =
   'w-full rounded-lg border border-line bg-surface text-fg text-sm placeholder:text-fg-subtle shadow-sf-sm ' +
@@ -21,7 +22,7 @@ export function Field({ label, hint, error, optional, className, children, id: i
       {label && (
         <label htmlFor={id} className="text-[13px] font-medium text-fg flex items-center gap-1.5">
           {label}
-          {optional && <span className="text-fg-subtle font-normal">Optional</span>}
+          {optional && <span className="text-fg-subtle font-normal">{t('Optional')}</span>}
         </label>
       )}
       {React.cloneElement(child, { id, 'aria-describedby': describedBy, 'aria-invalid': error ? true : undefined, invalid: !!error })}

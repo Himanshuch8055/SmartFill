@@ -1,5 +1,6 @@
 // On-page UI for the fill preview, toasts and the "remember this field" prompt.
 import { createLayer, el } from './shadow'
+import { t, tn } from '../lib/i18n'
 
 const CSS = `
   .box {
@@ -55,7 +56,6 @@ function track(update) {
 }
 
 const truncate = (s, n = 36) => (String(s).length > n ? String(s).slice(0, n) + '…' : String(s))
-const fieldsLabel = (n) => `${n} field${n === 1 ? '' : 's'}`
 
 // ---------- Preview ----------
 
@@ -67,7 +67,7 @@ export function clearPreview() {
 }
 
 // entries: [{ el, label, value }]. onConfirm receives the Set of skipped entry indexes.
-export function showPreview(entries, { onConfirm, onCancel, hint = 'Click a label to skip it' }) {
+export function showPreview(entries, { onConfirm, onCancel, hint = t('Click a label to skip it') }) {
   clearPreview()
   const { root } = getLayer()
   const nodes = []
@@ -78,12 +78,12 @@ export function showPreview(entries, { onConfirm, onCancel, hint = 'Click a labe
     const tag = el('button', 'tag')
     tag.type = 'button'
     tag.append(el('span', null, label), el('span', 'v', truncate(value)))
-    tag.title = 'Click to skip this field'
+    tag.title = t('Click to skip this field')
     tag.addEventListener('click', (e) => {
       e.stopPropagation()
       skipped.has(i) ? skipped.delete(i) : skipped.add(i)
       box.classList.toggle('skipped', skipped.has(i))
-      tag.title = skipped.has(i) ? 'Click to fill this field' : 'Click to skip this field'
+      tag.title = skipped.has(i) ? t('Click to fill this field') : t('Click to skip this field')
       updateBar()
     })
     box.appendChild(tag)
@@ -107,7 +107,7 @@ export function showPreview(entries, { onConfirm, onCancel, hint = 'Click a labe
   const bar = el('div', 'sf sf-card sf-enter bar')
   const hintEl = el('span', 'hint', hint)
   const fill = el('button', 'sf-btn sf-primary')
-  const cancel = el('button', 'sf-btn sf-secondary', 'Cancel')
+  const cancel = el('button', 'sf-btn sf-secondary', t('Cancel'))
   fill.type = cancel.type = 'button'
   bar.append(hintEl, cancel, fill)
   root.appendChild(bar)
@@ -115,7 +115,7 @@ export function showPreview(entries, { onConfirm, onCancel, hint = 'Click a labe
 
   function updateBar() {
     const count = entries.length - skipped.size
-    fill.textContent = skipped.size ? `Fill ${count} of ${entries.length}` : `Fill ${fieldsLabel(count)}`
+    fill.textContent = skipped.size ? t('Fill {count} of {total}', { count, total: entries.length }) : tn(count, 'Fill {n} field', 'Fill {n} fields')
     fill.disabled = count === 0
   }
   updateBar()
@@ -153,17 +153,17 @@ export function showToast(text, { actionLabel, onAction, timeout = 3500, tone } 
   }
   // One message at a time keeps the page calm.
   toastStack.replaceChildren()
-  const t = el('div', `sf sf-card sf-enter toast${tone === 'danger' ? ' danger' : ''}`)
-  t.setAttribute('role', 'status')
-  t.appendChild(el('span', null, text))
+  const toast = el('div', `sf sf-card sf-enter toast${tone === 'danger' ? ' danger' : ''}`)
+  toast.setAttribute('role', 'status')
+  toast.appendChild(el('span', null, text))
   if (actionLabel) {
     const btn = el('button', 'sf-link accent', actionLabel)
     btn.type = 'button'
-    btn.addEventListener('click', () => { t.remove(); onAction?.() })
-    t.appendChild(btn)
+    btn.addEventListener('click', () => { toast.remove(); onAction?.() })
+    toast.appendChild(btn)
   }
-  toastStack.appendChild(t)
-  setTimeout(() => t.remove(), timeout)
+  toastStack.appendChild(toast)
+  setTimeout(() => toast.remove(), timeout)
 }
 
 // ---------- Prompt anchored to a field ----------
@@ -178,7 +178,7 @@ export function showFieldPrompt(target, text, { actionLabel, onAction, timeout =
   box.setAttribute('aria-label', 'SmartFill')
   box.appendChild(el('p', null, text))
   const actions = el('div', 'actions')
-  const no = el('button', 'sf-btn sf-secondary', 'Not now')
+  const no = el('button', 'sf-btn sf-secondary', t('Not now'))
   const yes = el('button', 'sf-btn sf-primary', actionLabel)
   no.type = yes.type = 'button'
   actions.append(no, yes)
