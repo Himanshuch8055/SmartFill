@@ -42,6 +42,13 @@ export default function SettingsPage({ data }) {
           <Switch id="set-preview" checked={data.fillMode === 'preview'} onChange={(on) => set({ fillMode: on ? 'preview' : 'instant' })} />
         </SettingRow>
         <SettingRow
+          label="Keep filling on the next steps of a form"
+          description="After you fill one step of a long form, SmartFill fills the next steps too. It only fills empty fields and never changes what you typed."
+          htmlFor="set-continue"
+        >
+          <Switch id="set-continue" checked={data.continueFill} onChange={(on) => set({ continueFill: on })} />
+        </SettingRow>
+        <SettingRow
           label="Show button on pages"
           description="A small SmartFill button in the corner of pages with forms."
           htmlFor="set-widget"

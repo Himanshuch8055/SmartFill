@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- Multi-page forms: after you fill one step of a long form, SmartFill fills the next steps too, whether they appear on the same page or a new page on the same site. It only fills empty fields, never changes what you typed, and stops if you cancel the preview. Can be turned off in Settings.
 - Job applications: save your resume (PDF or Word, up to 2 MB) once and SmartFill attaches it to resume/CV upload fields.
 - Screening questions: save answers to questions like "Are you authorized to work…?" or "Do you need visa sponsorship?". SmartFill matches them by wording and fills dropdowns, yes/no options and text boxes. One click adds common questions to start from.
 - Education fields: school, degree, field of study and graduation year.

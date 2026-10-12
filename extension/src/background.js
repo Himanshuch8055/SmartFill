@@ -50,8 +50,47 @@ function hostOf(url) {
   }
 }
 
+// ---------- Multi-page fill sessions ----------
+// After a fill, a tab stays in a session for SESSION_MS so the next steps of the same form
+// (new fields, or a new page on the same site) can be filled too.
+
+const SESSION_MS = 10 * 60 * 1000
+const sessionKey = (tabId) => `fillSession:${tabId}`
+
+// Same site: identical hosts, or sharing the last two labels (jobs.acme.com / apply.acme.com).
+function sameSite(a, b) {
+  if (!a || !b) return false
+  if (a === b) return true
+  const base = (h) => h.split('.').slice(-2).join('.')
+  return base(a) === base(b)
+}
+
+async function getSession(tabId) {
+  try {
+    const data = await chrome.storage.session.get(sessionKey(tabId))
+    const s = data[sessionKey(tabId)]
+    return s && s.expires > Date.now() ? s : null
+  } catch {
+    return null
+  }
+}
+
+async function startSession(tab) {
+  if (tab?.id == null) return
+  const { continueFill } = await chrome.storage.local.get(['continueFill'])
+  if (continueFill === false) return
+  await chrome.storage.session.set({ [sessionKey(tab.id)]: { host: hostOf(tab.url), expires: Date.now() + SESSION_MS } }).catch(() => {})
+}
+
+async function endSession(tabId) {
+  await chrome.storage.session.remove(sessionKey(tabId)).catch?.(() => {})
+}
+
+chrome.tabs.onRemoved?.addListener((tabId) => endSession(tabId))
+
 // preview: true/false forces a mode; undefined uses the user's setting (default: preview)
-async function autofillTab(tab, { preview, profile } = {}) {
+// continuation: this is a later step of a form already filled in this tab
+async function autofillTab(tab, { preview, profile, continuation = false } = {}) {
   const host = hostOf(tab.url)
   if (await isSiteBlocked(host)) return { ok: false, error: `SmartFill is turned off on ${host}` }
   const { fillMode } = await chrome.storage.local.get(['fillMode'])
@@ -62,7 +101,7 @@ async function autofillTab(tab, { preview, profile } = {}) {
   // The resume is sent only when this profile has one and the page is filled.
   const resume = siteProfile?.id && data?.resume ? await getResume(siteProfile.id) : null
   try {
-    const res = await chrome.tabs.sendMessage(tab.id, { type: 'AUTOFILL', profile: data, rules, resume, preview: usePreview })
+    const res = await chrome.tabs.sendMessage(tab.id, { type: 'AUTOFILL', profile: data, rules, resume, preview: usePreview, continuation })
     return res || { ok: true }
   } catch (e) {
     return { ok: false, error: 'SmartFill cannot run on this page. Try reloading it.' }
@@ -296,6 +335,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break
       }
       // What the content script needs to count fillable fields: answers and whether a resume exists.
+      case 'START_FILL_SESSION': {
+        await startSession(sender.tab)
+        sendResponse({ ok: true })
+        break
+      }
+      case 'END_FILL_SESSION': {
+        if (sender.tab?.id != null) await endSession(sender.tab.id)
+        sendResponse({ ok: true })
+        break
+      }
+      case 'GET_FILL_SESSION': {
+        const session = sender.tab?.id != null ? await getSession(sender.tab.id) : null
+        sendResponse({ ok: true, active: !!session && sameSite(session.host, hostOf(sender.tab.url)) })
+        break
+      }
+      // The content script found new empty fields during a session: fill the next step.
+      case 'CONTINUE_FILL': {
+        const tab = sender.tab
+        const session = tab?.id != null ? await getSession(tab.id) : null
+        const { continueFill } = await chrome.storage.local.get(['continueFill'])
+        if (!session || continueFill === false || !sameSite(session.host, hostOf(tab.url))) {
+          sendResponse({ ok: false, inactive: true })
+          break
+        }
+        sendResponse(await autofillTab(tab, { continuation: true }))
+        break
+      }
       case 'GET_FILL_CONTEXT': {
         const p = await getProfileForHost(message.host)
         sendResponse({ ok: true, answers: p?.data?.answers || [], hasResume: !!p?.data?.resume })
