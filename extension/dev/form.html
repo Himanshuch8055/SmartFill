@@ -55,6 +55,31 @@
           <label>How did you hear about us? <input name="source"></label>
         </fieldset>
         <fieldset>
+          <legend>Education</legend>
+          <div class="row">
+            <label>School / University <input name="school"></label>
+            <label>Degree <input name="degree"></label>
+          </div>
+          <div class="row">
+            <label>Discipline <input name="discipline"></label>
+            <label>Graduation year <input name="grad_year"></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Application questions</legend>
+          <label>Resume / CV <input type="file" name="resume" accept=".pdf,.doc,.docx"></label>
+          <label>Are you legally authorized to work in India?
+            <select name="q_auth"><option value="">Select…</option><option>Yes</option><option>No</option></select>
+          </label>
+          <fieldset style="margin:0 0 14px">
+            <legend style="font:14px system-ui;text-transform:none;letter-spacing:0;color:#222;margin-bottom:4px">Do you need visa sponsorship now or in the future?</legend>
+            <label style="display:inline-flex;gap:6px;align-items:center;margin-right:16px"><input type="radio" name="q_visa" value="yes" style="width:auto;margin:0"> Yes</label>
+            <label style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="q_visa" value="no" style="width:auto;margin:0"> No</label>
+          </fieldset>
+          <label>Are you open to relocation? <input name="q_relocate"></label>
+          <label>Are you willing to travel for work? <input name="q_travel"></label>
+        </fieldset>
+        <fieldset>
           <legend>Account</legend>
           <label>Password <input name="password" type="password"></label>
         </fieldset>

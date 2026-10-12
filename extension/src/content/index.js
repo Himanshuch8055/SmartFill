@@ -1,5 +1,5 @@
 // Content script
-import { findFillableInputs, fillFields, deriveProfile, snapshot, restore } from '../lib/detectFields'
+import { findFillableInputs, fillFields, deriveProfile, snapshot, restore, findAnswerTargets, findResumeInputs } from '../lib/detectFields'
 import { PROFILE_FIELDS } from '../lib/profileFields'
 import { showPreview, showToast, showFieldPrompt } from './preview'
 import { mountWidget } from './widget'
@@ -50,7 +50,12 @@ function applyWidgetState(widgetEnabled, blockedSites) {
 
   try {
     chrome.storage.onChanged.addListener(async (changes, area) => {
-      if (area !== 'local' || !('widgetEnabled' in changes || 'blockedSites' in changes)) return
+      if (area !== 'local') return
+      if ('profiles' in changes || 'activeProfileId' in changes || 'siteProfiles' in changes) {
+        fillContext = null // answers or resume may have changed
+        if (isTop) reportFieldCount()
+      }
+      if (!('widgetEnabled' in changes || 'blockedSites' in changes)) return
       const { widgetEnabled, blockedSites } = await chrome.storage.local.get(['widgetEnabled', 'blockedSites'])
       applyWidgetState(widgetEnabled, blockedSites)
       if (isTop) reportFieldCount()
@@ -122,7 +127,8 @@ function buildFieldMapWithRules(rules = []) {
 }
 
 // Build the full fill plan: rules -> custom fields -> auto-detected.
-function buildFillPlan(rawProfile = {}, rules = []) {
+// resume: { name, type, size, dataUrl } for the profile being filled, or null.
+function buildFillPlan(rawProfile = {}, rules = [], resume = null) {
   const { map: ruleMap, fixed } = buildFieldMapWithRules(rules)
   const autoMap = findFillableInputs(document)
 
@@ -159,6 +165,23 @@ function buildFillPlan(rawProfile = {}, rules = []) {
   const customVals = Object.fromEntries(customs.filter((c) => c?.name).map((c) => [c.name, c.value]))
   const profile = deriveProfile({ ...rawProfile, ...customVals, ...fixed })
 
+  // Screening answers: questions not already filled by a profile field, rule or custom field.
+  const taken = new Set()
+  for (const list of Object.values(map)) for (const t of list) for (const el of [].concat(t)) taken.add(el)
+  findAnswerTargets(document, rawProfile.answers || [], taken).forEach((a, i) => {
+    map[`__answer_${i}`] = [a.target]
+    profile[`__answer_${i}`] = a.answer
+  })
+
+  // Resume / CV upload fields
+  if (resume?.dataUrl) {
+    const inputs = findResumeInputs(document)
+    if (inputs.length) {
+      map.__resume = inputs
+      profile.__resume = resume
+    }
+  }
+
   // Drop keys with no value so preview/count reflect what will actually change.
   for (const key of Object.keys(map)) {
     const v = profile[key]
@@ -177,8 +200,8 @@ function previewEntries(map, profile) {
         key,
         target: t,
         el: Array.isArray(t) ? t[0] : t,
-        label: key.startsWith('__fixed_') ? 'Rule' : FIELD_LABELS[key] || key,
-        value: profile[key],
+        label: key.startsWith('__fixed_') ? 'Rule' : key.startsWith('__answer_') ? 'Answer' : key === '__resume' ? 'Resume' : FIELD_LABELS[key] || key,
+        value: key === '__resume' ? profile.__resume.name : profile[key],
       })
     }
   }
@@ -250,7 +273,7 @@ function watchCorrections(map, profile) {
   // Profile value -> key (first key wins, so specific keys beat derived ones)
   const valueToKey = new Map()
   for (const [key, v] of Object.entries(profile)) {
-    if (key.startsWith('__fixed_') || typeof v !== 'string') continue
+    if (key.startsWith('__') || typeof v !== 'string') continue // only real profile fields (not rules, answers or the resume)
     const n = normValue(v)
     if (n && !valueToKey.has(n)) valueToKey.set(n, key)
   }
@@ -282,7 +305,7 @@ document.addEventListener('contextmenu', (e) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg?.type) {
     case 'AUTOFILL': {
-      const { map, profile } = buildFillPlan(msg.profile || {}, msg.rules || [])
+      const { map, profile } = buildFillPlan(msg.profile || {}, msg.rules || [], msg.resume || null)
       const count = countTargets(map)
       // Sub-frames without fields stay silent so the frame that has fields answers.
       if (!isTop && !count) return false
@@ -337,9 +360,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // ---------- Field count: shown in the popup, and decides whether the page button appears ----------
 
-function reportFieldCount() {
+// Saved screening answers and whether a resume exists, for the profile used on this site.
+// Fetched once per page and refreshed when profiles change.
+let fillContext = null
+async function getFillContext() {
+  if (!fillContext) {
+    fillContext = chrome.runtime
+      .sendMessage({ type: 'GET_FILL_CONTEXT', host: location.host })
+      .then((res) => ({ answers: res?.answers || [], hasResume: !!res?.hasResume }))
+      .catch(() => ({ answers: [], hasResume: false }))
+  }
+  return fillContext
+}
+
+async function reportFieldCount() {
   try {
-    const count = siteBlocked ? 0 : countTargets(findFillableInputs(document))
+    let count = 0
+    if (!siteBlocked) {
+      const autoMap = findFillableInputs(document)
+      count = countTargets(autoMap)
+      // Include screening answers and resume uploads so the count matches what a fill does.
+      const { answers, hasResume } = await getFillContext()
+      const taken = new Set()
+      for (const list of Object.values(autoMap)) for (const t of list) for (const el of [].concat(t)) taken.add(el)
+      count += findAnswerTargets(document, answers, taken).length
+      if (hasResume) count += findResumeInputs(document).length
+    }
     lastCount = count
     widget?.setCount(count)
     chrome.runtime.sendMessage({ type: 'FIELD_COUNT', count }).catch(() => {})

@@ -18,7 +18,9 @@ import {
   setSiteBlocked,
   getSiteProfiles,
   setSiteProfile,
-  getProfileForHost
+  getProfileForHost,
+  getResume,
+  setResume
 } from './lib/storage'
 import { PROFILE_FIELDS } from './lib/profileFields'
 import { GOODBYE_URL } from './lib/links'
@@ -54,10 +56,13 @@ async function autofillTab(tab, { preview, profile } = {}) {
   if (await isSiteBlocked(host)) return { ok: false, error: `SmartFill is turned off on ${host}` }
   const { fillMode } = await chrome.storage.local.get(['fillMode'])
   const usePreview = preview ?? fillMode !== 'instant'
-  const data = profile || (await getProfileForHost(host))?.data || (await getProfile())
+  const siteProfile = profile ? null : (await getProfileForHost(host))
+  const data = profile || siteProfile?.data || (await getProfile())
   const rules = await getRules()
+  // The resume is sent only when this profile has one and the page is filled.
+  const resume = siteProfile?.id && data?.resume ? await getResume(siteProfile.id) : null
   try {
-    const res = await chrome.tabs.sendMessage(tab.id, { type: 'AUTOFILL', profile: data, rules, preview: usePreview })
+    const res = await chrome.tabs.sendMessage(tab.id, { type: 'AUTOFILL', profile: data, rules, resume, preview: usePreview })
     return res || { ok: true }
   } catch (e) {
     return { ok: false, error: 'SmartFill cannot run on this page. Try reloading it.' }
@@ -288,6 +293,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'SET_SITE_PROFILE': {
         await setSiteProfile(message.host, message.profileId || '')
         sendResponse({ ok: true })
+        break
+      }
+      // What the content script needs to count fillable fields: answers and whether a resume exists.
+      case 'GET_FILL_CONTEXT': {
+        const p = await getProfileForHost(message.host)
+        sendResponse({ ok: true, answers: p?.data?.answers || [], hasResume: !!p?.data?.resume })
+        break
+      }
+      case 'SET_RESUME': {
+        try {
+          await setResume(message.id, message.resume || null)
+          sendResponse({ ok: true })
+        } catch (e) {
+          sendResponse({ ok: false, error: e?.message || "Couldn't save the file" })
+        }
         break
       }
       case 'ADD_RULE': {

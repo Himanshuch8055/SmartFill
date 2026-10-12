@@ -1,3 +1,5 @@
+import { matchAnswer } from './answers'
+
 // Field detection (weighted scoring) and filling.
 // findFillableInputs() returns { key: HTMLElement[] } so repeated sections (billing/shipping) all fill.
 
@@ -19,6 +21,11 @@ export const FIELD_SPECS = [
   { key: 'currentCtc', re: /\bcurrent\s*(ctc|salary|compensation|pay)\b/ },
   { key: 'expectedCtc', re: /\bexpected\s*(ctc|salary|compensation|pay)\b|\bsalary\s*expectation/ },
   { key: 'noticePeriod', re: /\bnotice\s*period\b/ },
+  // Education (most recent). Graduation year before the generic degree/school patterns.
+  { key: 'graduationYear', re: /\bgraduat(ion|ed|ing)\b.*\b(year|date)\b|\byear of (graduation|passing|completion)\b|\bpassing year\b|\bclass of\b/ },
+  { key: 'fieldOfStudy', re: /\bfield of stud(y|ies)\b|\bmajor\b|\bdiscipline\b|\bspeciali[sz]ation\b|\barea of study\b/ },
+  { key: 'degree', re: /\bdegree\b|\bqualification\b/, not: /\bfield\b|\bmajor\b|\bdiscipline\b|\bdegrees? (celsius|fahrenheit)\b/ },
+  { key: 'school', re: /\b(school|college|university|institution|institute)\b(\s*name)?/, not: /\bhigh school (diploma|grade)\b/ },
   { key: 'address2', ac: ['address-line2'], re: /\baddress\s*(line\s*)?2\b|\bapartment\b|\bapt\b|\bsuite\b|\bunit\b|\blandmark\b/ },
   { key: 'address1', ac: ['address-line1', 'street-address'], re: /\baddress\s*(line\s*)?1?\b|\bstreet\b/, not: /\be\s*-?\s*mail\b|\bweb\b|\bip\b|\b(line\s*)?2\b/ },
   { key: 'city', ac: ['address-level2'], re: /\bcity\b|\btown\b/, not: /\bethnicity\b/ },
@@ -296,6 +303,7 @@ export function fillElement(key, target, value) {
   if (Array.isArray(target)) return fillRadioGroup(target, value)
   const el = target
   if (!el?.isConnected) return false
+  if (el.tagName === 'INPUT' && el.type === 'file') return value?.dataUrl ? attachFile(el, value) : false
   if (el.tagName === 'INPUT' && isSensitive(el)) return false
   try { el.focus({ preventScroll: true }) } catch {}
   const v = adaptValue(key, el, value)
@@ -373,6 +381,11 @@ export function restore(snap = []) {
     if (html !== undefined) {
       el.innerHTML = html
       el.dispatchEvent(new Event('input', { bubbles: true }))
+    } else if (el.type === 'file') {
+      // File inputs can only be cleared, not set back to a previous file.
+      if (!el.value || value) continue
+      el.value = ''
+      dispatchAll(el)
     } else if (el.type === 'checkbox' || el.type === 'radio') {
       if (el.checked === checked) continue
       el.checked = checked
@@ -386,4 +399,89 @@ export function restore(snap = []) {
     count++
   }
   return count
+}
+
+// ---------- Screening answers ----------
+
+// The question a field asks: its label, or the legend / question title around it.
+export function questionText(el) {
+  const own = labelText(el)
+  if (own) return own
+  return normalize(el.closest('fieldset')?.querySelector('legend')?.textContent || el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent || '')
+}
+
+// Fields whose question matches one of the saved screening answers.
+// `claimed`: elements already filled by profile fields or rules (skipped here).
+// Returns [{ target, question, answer }] where target is an element or a radio group.
+export function findAnswerTargets(root = document, answers = [], claimed = new Set()) {
+  if (!answers?.length) return []
+  const out = []
+  const radioGroups = new Set()
+  for (const el of root.querySelectorAll(CANDIDATE_SELECTOR)) {
+    if (claimed.has(el)) continue
+    const type = String(el.getAttribute('type') || '').toLowerCase()
+    if (el.tagName === 'INPUT' && SKIP_TYPES.has(type)) continue
+    if (!isVisible(el) || isSensitive(el)) continue
+    let target = el
+    let question
+    if (type === 'radio') {
+      const name = el.getAttribute('name')
+      if (!name || radioGroups.has(name)) continue
+      radioGroups.add(name)
+      target = Array.from(root.querySelectorAll('input[type="radio"]')).filter((r) => r.name === name && !r.disabled)
+      if (target.some((r) => claimed.has(r))) continue
+      question = normalize(el.closest('fieldset')?.querySelector('legend')?.textContent || el.closest(QUESTION_ROOT)?.querySelector(QUESTION_TITLE)?.textContent || '')
+    } else {
+      question = questionText(el)
+    }
+    if (!question) continue
+    const match = matchAnswer(question, answers)
+    if (match) out.push({ target, question, answer: match.answer })
+  }
+  return out
+}
+
+// ---------- Resume upload ----------
+
+const RESUME_TEXT = /\b(resume|cv|curriculum vitae|curriculum)\b/
+const NOT_RESUME_TEXT = /\b(cover letter|photo|picture|avatar|image|transcript|portfolio|certificate|id proof|identity)\b/
+
+function acceptsDocuments(el) {
+  const accept = String(el.getAttribute('accept') || '').toLowerCase()
+  if (!accept) return true
+  return /pdf|msword|wordprocessingml|\.docx?|application\/\*|\*\/\*/.test(accept)
+}
+
+// File inputs that ask for a resume or CV. Hidden inputs are included: many sites hide the real
+// input behind a styled "Upload" button.
+export function findResumeInputs(root = document) {
+  const out = []
+  for (const el of root.querySelectorAll('input[type="file"]:not([disabled])')) {
+    const text = `${labelText(el)} ${normalize([el.getAttribute('name'), el.id, el.getAttribute('aria-label')].filter(Boolean).join(' '))} ${normalize(el.closest('[class*="resume" i], [id*="resume" i], [class*="cv" i]') ? 'resume' : '')}`
+    if (RESUME_TEXT.test(text) && !NOT_RESUME_TEXT.test(text) && acceptsDocuments(el)) out.push(el)
+  }
+  return out
+}
+
+function dataUrlToFile({ dataUrl, name, type }) {
+  const [, b64 = ''] = String(dataUrl).split(',')
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new File([bytes], name, { type: type || 'application/octet-stream' })
+}
+
+// Attach a stored file to a file input the way a real file pick does.
+export function attachFile(input, file) {
+  if (typeof DataTransfer === 'undefined') return false
+  try {
+    const dt = new DataTransfer()
+    dt.items.add(dataUrlToFile(file))
+    input.files = dt.files
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    return input.files.length > 0
+  } catch {
+    return false
+  }
 }

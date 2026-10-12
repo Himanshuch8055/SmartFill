@@ -192,10 +192,10 @@ function Features() {
         <Card
           className="md:col-span-3"
           title="Ready for job applications"
-          text="Works on Greenhouse, Lever and other application forms, including the questions most autofill tools skip."
+          text="Attaches your resume, answers screening questions like visa sponsorship and relocation, and fills education and experience fields on Greenhouse, Lever and company forms."
         >
           <div className="flex flex-wrap gap-2">
-            {['LinkedIn', 'GitHub', 'Portfolio', 'Years of experience', 'Notice period', 'Expected salary'].map((t) => (
+            {['Resume upload', 'Screening questions', 'LinkedIn', 'GitHub', 'Education', 'Notice period', 'Expected salary'].map((t) => (
               <span key={t} className="rounded-md border border-line bg-bg px-2.5 py-1 text-sm text-fg-muted">{t}</span>
             ))}
           </div>

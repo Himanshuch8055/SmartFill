@@ -1,6 +1,6 @@
 // Storage helpers with multi-profile support. Also exports legacy getProfile/saveProfile wrappers.
 
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 export const DEFAULT_PROFILE_DATA = {
   fullName: '',
@@ -30,6 +30,14 @@ export const DEFAULT_PROFILE_DATA = {
   expectedCtc: '',
   noticePeriod: '',
   bio: '',
+  school: '',
+  degree: '',
+  fieldOfStudy: '',
+  graduationYear: '',
+  // Screening questions: [{ question, answer }], matched to form questions by wording
+  answers: [],
+  // Resume metadata only ({ name, type, size }); the file itself is stored under resume:<profileId>
+  resume: null,
   customFields: []
 }
 
@@ -113,6 +121,7 @@ export async function deleteProfile(id) {
   const next = profiles.filter((p) => p.id !== id)
   const nextActive = activeProfileId === id && next.length ? next[0].id : activeProfileId
   await saveProfiles(next, nextActive)
+  await chrome.storage.local.remove(resumeKey(id))
   const siteProfiles = await getSiteProfiles()
   const cleaned = Object.fromEntries(Object.entries(siteProfiles).filter(([, pid]) => pid !== id))
   if (Object.keys(cleaned).length !== Object.keys(siteProfiles).length) await chrome.storage.local.set({ siteProfiles: cleaned })
@@ -124,7 +133,8 @@ export async function duplicateProfile(id) {
   if (!src) return null
   const copyId = genId()
   const copy = { id: copyId, name: `${src.name} Copy`, data: { ...src.data } }
-  await chrome.storage.local.set({ profiles: [...profiles, copy], activeProfileId: copyId })
+  const resume = await getResume(id)
+  await chrome.storage.local.set({ profiles: [...profiles, copy], activeProfileId: copyId, ...(resume ? { [resumeKey(copyId)]: resume } : {}) })
   return copyId
 }
 
@@ -145,6 +155,7 @@ export async function exportProfiles() {
     blockedSites: extra.blockedSites || [],
     siteProfiles: extra.siteProfiles || {},
     settings,
+    resumes: await getResumes(profiles.map((p) => p.id)),
   }
 }
 
@@ -166,6 +177,12 @@ export async function importProfiles(payload) {
       next.siteProfiles = Object.fromEntries(Object.entries(payload.siteProfiles).filter(([, id]) => ids.has(id)))
     }
     for (const k of BACKUP_SETTING_KEYS) if (payload.settings && k in payload.settings) next[k] = payload.settings[k]
+    if (payload.resumes && typeof payload.resumes === 'object') {
+      for (const p of sanitized) {
+        const r = payload.resumes[p.id]
+        if (isValidResume(r)) next[resumeKey(p.id)] = r
+      }
+    }
   }
   await chrome.storage.local.set(next)
 }
@@ -243,4 +260,48 @@ export async function addRule(rule) {
   next.push({ ...rule, createdAt: Date.now() })
   await saveRules(next)
   return next
+}
+
+// ---------- Resumes ----------
+// Stored apart from profiles so autosave doesn't resend the file on every keystroke.
+// { name, type, size, dataUrl } where dataUrl is a base64 data: URL.
+
+export const RESUME_MAX_BYTES = 2 * 1024 * 1024
+export const RESUME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+
+const resumeKey = (profileId) => `resume:${profileId}`
+
+function isValidResume(r) {
+  return !!r && typeof r.dataUrl === 'string' && r.dataUrl.startsWith('data:') && typeof r.name === 'string'
+}
+
+export async function getResume(profileId) {
+  const key = resumeKey(profileId)
+  const data = await chrome.storage.local.get([key])
+  return isValidResume(data[key]) ? data[key] : null
+}
+
+async function getResumes(profileIds) {
+  const keys = profileIds.map(resumeKey)
+  const data = await chrome.storage.local.get(keys)
+  const out = {}
+  for (const id of profileIds) if (isValidResume(data[resumeKey(id)])) out[id] = data[resumeKey(id)]
+  return out
+}
+
+// Save (or remove, with null) a profile's resume and keep the metadata in the profile in sync.
+export async function setResume(profileId, resume) {
+  if (resume) {
+    if (!isValidResume(resume)) throw new Error('Invalid resume file')
+    if (resume.size > RESUME_MAX_BYTES) throw new Error('Resume is larger than 2 MB')
+    await chrome.storage.local.set({ [resumeKey(profileId)]: resume })
+  } else {
+    await chrome.storage.local.remove(resumeKey(profileId))
+  }
+  const meta = resume ? { name: resume.name, type: resume.type, size: resume.size } : null
+  await updateProfile(profileId, { resume: meta })
 }

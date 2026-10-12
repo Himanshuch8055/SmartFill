@@ -21,4 +21,11 @@
     <input id="q6" name="job_application[answers_attributes][6][text_value]" type="text" data-expect="yearsExperience"></div>
   <div class="field"><label for="q7">Are you legally authorized to work in this country?</label>
     <select id="q7" name="job_application[answers_attributes][7][boolean_value]" data-expect="none"><option>Yes</option><option>No</option></select></div>
+  <fieldset><legend>Education</legend>
+    <div class="field"><label for="school">School</label><select id="school" name="education[school_name_id]" data-expect="school"><option>University of Pune</option></select></div>
+    <div class="field"><label for="degree">Degree</label><select id="degree" name="education[degree_id]" data-expect="degree"><option>Bachelor's</option></select></div>
+    <div class="field"><label for="discipline">Discipline</label><input id="discipline" name="education[discipline_id]" data-expect="fieldOfStudy"></div>
+    <div class="field"><label for="grad">Graduation year</label><input id="grad" name="education[end_date][year]" data-expect="graduationYear"></div>
+  </fieldset>
+  <div class="field"><label for="resume_file">Attach your resume</label><input id="resume_file" type="file" accept=".pdf,.doc,.docx" data-expect="none"></div>
 </form>

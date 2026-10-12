@@ -7,6 +7,7 @@ globalThis.chrome = {
     local: {
       get: vi.fn(async (keys) => Object.fromEntries(keys.filter((k) => k in store).map((k) => [k, store[k]]))),
       set: vi.fn(async (obj) => Object.assign(store, obj)),
+      remove: vi.fn(async (keys) => { for (const k of [].concat(keys)) delete store[k] }),
     },
   },
 }
@@ -116,5 +117,49 @@ describe('per-site controls and backup', () => {
     expect(store.profiles[0].data.fullName).toBe('Old')
     expect(store.rules).toHaveLength(1)
     expect(store.fillMode).toBe('instant')
+  })
+})
+
+describe('resumes', () => {
+  const pdf = { name: 'cv.pdf', type: 'application/pdf', size: 1200, dataUrl: 'data:application/pdf;base64,JVBERi0=' }
+
+  it('stores the file apart from the profile and keeps metadata in sync', async () => {
+    const { setResume, getResume } = await import('../src/lib/storage.js')
+    store = { profiles: [{ id: 'w', name: 'Work', data: {} }], activeProfileId: 'w', schemaVersion: SCHEMA_VERSION }
+    await setResume('w', pdf)
+    expect(await getResume('w')).toEqual(pdf)
+    expect(store.profiles[0].data.resume).toEqual({ name: 'cv.pdf', type: 'application/pdf', size: 1200 })
+    expect(JSON.stringify(store.profiles)).not.toContain('base64')
+    await setResume('w', null)
+    expect(await getResume('w')).toBeNull()
+    expect(store.profiles[0].data.resume).toBeNull()
+  })
+
+  it('rejects files over 2 MB', async () => {
+    const { setResume } = await import('../src/lib/storage.js')
+    store = { profiles: [{ id: 'w', name: 'Work', data: {} }], activeProfileId: 'w', schemaVersion: SCHEMA_VERSION }
+    await expect(setResume('w', { ...pdf, size: 3 * 1024 * 1024 })).rejects.toThrow('2 MB')
+  })
+
+  it('duplicate copies the resume, delete removes it, backup round-trips it', async () => {
+    const { setResume, getResume, duplicateProfile, deleteProfile, exportProfiles, importProfiles } = await import('../src/lib/storage.js')
+    store = { profiles: [{ id: 'w', name: 'Work', data: {} }, { id: 'p', name: 'Personal', data: {} }], activeProfileId: 'w', schemaVersion: SCHEMA_VERSION }
+    await setResume('w', pdf)
+    const copyId = await duplicateProfile('w')
+    expect(await getResume(copyId)).toEqual(pdf)
+    await deleteProfile(copyId)
+    expect(await getResume(copyId)).toBeNull()
+
+    const backup = JSON.parse(JSON.stringify(await exportProfiles()))
+    expect(backup.resumes.w.name).toBe('cv.pdf')
+    store = {}
+    await importProfiles(backup)
+    expect(await getResume('w')).toEqual(pdf)
+  })
+
+  it('migrates v2 profiles to include job fields', async () => {
+    store = { profiles: [{ id: 'a', name: 'Me', data: { fullName: 'Asha' } }], activeProfileId: 'a', schemaVersion: 2 }
+    const [p] = await getProfiles()
+    expect(p.data).toMatchObject({ fullName: 'Asha', school: '', answers: [], resume: null })
   })
 })
