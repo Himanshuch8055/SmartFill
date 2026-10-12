@@ -28,7 +28,7 @@ function usePopupState() {
       const [tab, prof, local] = await Promise.all([
         send({ type: 'GET_TAB_STATE' }),
         send({ type: 'GET_PROFILES' }),
-        chrome.storage.local.get(['popupProfileIds', 'fillMode', 'fillCount', 'ratingPromptDone', 'fillHistory']),
+        chrome.storage.local.get(['popupProfileIds', 'fillMode', 'fillCount', 'ratingPromptDone', 'fillHistory', 'testDataEnabled']),
       ])
       setState({
         loading: false,
@@ -42,6 +42,7 @@ function usePopupState() {
         popupProfileIds: Array.isArray(local.popupProfileIds) ? local.popupProfileIds : [],
         preview: local.fillMode !== 'instant',
         lastFilledAt: (Array.isArray(local.fillHistory) ? local.fillHistory : []).find((e) => e.host === tab?.host)?.at || 0,
+        testData: local.testDataEnabled === true,
         showRating: !local.ratingPromptDone && (local.fillCount || 0) >= RATING_PROMPT_AFTER,
       })
     } catch (e) {
@@ -139,11 +140,11 @@ function Popup() {
     }
   }
 
-  const fill = React.useCallback(async () => {
+  const fill = React.useCallback(async (withTestData) => {
     if (!canFill || busy) return
     setBusy(true)
     try {
-      const res = await send({ type: 'AUTOFILL_ACTIVE' })
+      const res = await send({ type: 'AUTOFILL_ACTIVE', testData: withTestData === true })
       if (!res?.ok) return notify(res?.error || 'Something went wrong.', { tone: 'danger' })
       if (res.preview) {
         // The preview is on the page; close so it gets focus (Enter / Esc work there).
@@ -312,7 +313,11 @@ function Popup() {
       {!state.loading && !state.error && !needsSetup && (
         <footer className="border-t border-line px-4 h-10 flex items-center justify-between">
           <LinkButton onClick={undo} disabled={state.restricted}>Undo last fill</LinkButton>
-          <span className="text-[12px] text-fg-subtle" title="Change shortcuts at chrome://extensions/shortcuts">Alt+Shift+F</span>
+          {state.testData ? (
+            <LinkButton onClick={() => fill(true)} disabled={!canFill || busy}>Fill with test data</LinkButton>
+          ) : (
+            <span className="text-[12px] text-fg-subtle" title="Change shortcuts at chrome://extensions/shortcuts">Alt+Shift+F</span>
+          )}
         </footer>
       )}
     </div>

@@ -57,6 +57,16 @@ export default function SettingsPage({ data }) {
         </SettingRow>
       </Group>
 
+      <Group title="Developers">
+        <SettingRow
+          label="Fill with test data"
+          description="Adds Fill with test data to the popup and right-click menu. Each fill uses a new made-up person, with example.com emails and fake phone numbers, for testing your own forms."
+          htmlFor="set-testdata"
+        >
+          <Switch id="set-testdata" checked={data.testDataEnabled} onChange={(on) => set({ testDataEnabled: on })} />
+        </SettingRow>
+      </Group>
+
       <Group title="Appearance">
         <SettingRow label="Theme">
           <SegmentedControl
