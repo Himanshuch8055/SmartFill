@@ -61,6 +61,12 @@ Keyboard shortcuts: Alt+Shift+F fill · Alt+Shift+Z undo · Alt+Shift+P switch p
 - Upload `release/smartfill-firefox-<version>.zip` and the source `release/smartfill-source-<version>.zip`.
 - Build instructions for reviewers: Node 18+, `npm ci`, then `npm run build:firefox`. Output is in `dist-firefox/`.
 
+## Microsoft Edge Add-ons
+- Free to publish. Register at Partner Center → Microsoft Edge program (https://partner.microsoft.com/dashboard/microsoftedge).
+- Upload the **Chrome** zip (`release/smartfill-chrome-<version>.zip`); Edge runs Chrome extensions unchanged.
+- Reuse the Chrome listing text, screenshots, permission justifications and privacy policy URL from this file.
+- Category: Productivity. Review usually takes a few business days.
+
 ## Before submitting
 - [x] Website live at https://getsmartfill.vercel.app (`SITE_URL` in `src/lib/links.js`).
 - [ ] Privacy policy URL for both store dashboards: **https://getsmartfill.vercel.app/privacy**

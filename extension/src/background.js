@@ -21,6 +21,12 @@ import {
   getProfileForHost
 } from './lib/storage'
 import { PROFILE_FIELDS } from './lib/profileFields'
+import { GOODBYE_URL } from './lib/links'
+
+// Short "why did you uninstall?" page. Only the version is passed; nothing is collected.
+try {
+  chrome.runtime.setUninstallURL?.(`${GOODBYE_URL}?v=${chrome.runtime.getManifest().version}`)
+} catch {}
 
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   createContextMenus()
