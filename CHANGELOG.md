@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- Test data for developers: turn on "Fill with test data" in Settings → Developers to fill forms with a new made-up person each time (example.com emails, fake phone numbers, matching city/state/country). Available from the popup and the right-click menu, and kept for the next steps of a multi-page form.
 - Fill history: a new History page lists where you used SmartFill (site, profile, number of fields; steps of one form are grouped). The popup shows "Filled here 3 days ago" on sites you already filled. Stays on your device, never stores what was filled, and can be turned off or cleared.
 - Text snippets: save text under a shortcut like `;addr`, then type the shortcut in any text field or editor to insert it. `{date}` and `{time}` are filled in when inserted. Never runs in password or payment fields, or on sites you turned off. Manage them on the new Snippets page in Settings.
 

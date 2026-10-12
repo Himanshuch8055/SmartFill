@@ -24,6 +24,7 @@ import {
   getResume,
   setResume
 } from './lib/storage'
+import { makeTestProfile } from './lib/testData'
 import { PROFILE_FIELDS } from './lib/profileFields'
 import { GOODBYE_URL } from './lib/links'
 
@@ -35,6 +36,11 @@ try {
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   createContextMenus()
   if (reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') })
+})
+
+// The "Fill with test data" menu item follows the developer setting.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && 'testDataEnabled' in changes) createContextMenus()
 })
 
 // ---------- Fill helpers ----------
@@ -90,20 +96,31 @@ async function endSession(tabId) {
 
 chrome.tabs.onRemoved?.addListener((tabId) => {
   endSession(tabId)
-  chrome.storage.session.remove(`fillProfile:${tabId}`).catch?.(() => {})
+  chrome.storage.session.remove([`fillProfile:${tabId}`, `testProfile:${tabId}`]).catch?.(() => {})
 })
 
 // preview: true/false forces a mode; undefined uses the user's setting (default: preview)
 // continuation: this is a later step of a form already filled in this tab
-async function autofillTab(tab, { preview, profile, continuation = false } = {}) {
+async function autofillTab(tab, { preview, profile, continuation = false, testData = false } = {}) {
   const host = hostOf(tab.url)
   if (await isSiteBlocked(host)) return { ok: false, error: `SmartFill is turned off on ${host}` }
+  // Test data: a new made-up person per fill, kept for the next steps of the same form.
+  const testKey = `testProfile:${tab.id}`
+  if (testData) {
+    profile = makeTestProfile()
+    await chrome.storage.session.set({ [testKey]: profile }).catch(() => {})
+  } else if (continuation && !profile) {
+    profile = (await chrome.storage.session.get(testKey).catch(() => ({})))[testKey]
+    testData = !!profile
+  } else {
+    await chrome.storage.session.remove(testKey).catch?.(() => {})
+  }
   const { fillMode } = await chrome.storage.local.get(['fillMode'])
   const usePreview = preview ?? fillMode !== 'instant'
   const siteProfile = profile ? null : (await getProfileForHost(host))
   const data = profile || siteProfile?.data || (await getProfile())
   // Remembered so the fill history can name the profile once the page reports what it filled.
-  await chrome.storage.session.set({ [`fillProfile:${tab.id}`]: profile ? '' : siteProfile?.name || '' }).catch(() => {})
+  await chrome.storage.session.set({ [`fillProfile:${tab.id}`]: testData ? 'Test data' : profile ? '' : siteProfile?.name || '' }).catch(() => {})
   const rules = await getRules()
   // The resume is sent only when this profile has one and the page is filled.
   const resume = siteProfile?.id && data?.resume ? await getResume(siteProfile.id) : null
@@ -145,13 +162,17 @@ chrome.commands?.onCommand.addListener(async (command) => {
 
 // ---------- Context menu ----------
 
-function createContextMenus() {
+let testDataMenu = false
+
+async function createContextMenus() {
+  testDataMenu = (await chrome.storage.local.get(['testDataEnabled'])).testDataEnabled === true
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: 'sf-fill', title: 'SmartFill: Fill this form', contexts: ['page', 'editable'] })
     chrome.contextMenus.create({ id: 'sf-field', title: 'Fill this field with', contexts: ['editable'] })
     for (const f of PROFILE_FIELDS) {
       chrome.contextMenus.create({ id: `sf-field:${f.name}`, parentId: 'sf-field', title: f.label, contexts: ['editable'] })
     }
+    if (testDataMenu) chrome.contextMenus.create({ id: 'sf-test', title: 'SmartFill: Fill with test data', contexts: ['page', 'editable'] })
     chrome.contextMenus.create({ id: 'sf-undo', title: 'SmartFill: Undo last fill', contexts: ['page', 'editable'] })
     chrome.contextMenus.create({ id: 'sf-toggle-site', title: 'SmartFill: Turn on/off for this site', contexts: ['page', 'editable'] })
   })
@@ -171,6 +192,8 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
   if (await isSiteBlocked(host)) return
   if (id === 'sf-fill') {
     await autofillTab(tab)
+  } else if (id === 'sf-test') {
+    await autofillTab(tab, { testData: true })
   } else if (id === 'sf-undo') {
     await undoTab(tab.id)
   } else if (id.startsWith('sf-field:')) {
@@ -301,7 +324,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, error: 'No active tab' })
           break
         }
-        sendResponse(await autofillTab(tab, { preview: message.preview, profile: message.profile }))
+        sendResponse(await autofillTab(tab, { preview: message.preview, profile: message.profile, testData: message.testData === true }))
         break
       }
       case 'UNDO_ACTIVE': {
