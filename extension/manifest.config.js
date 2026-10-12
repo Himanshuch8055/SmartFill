@@ -58,7 +58,9 @@ export default {
       matches: ["<all_urls>"],
       js: ["src/content/index.js"],
       run_at: "document_idle",
-      all_frames: true
+      all_frames: true,
+      // Embedded forms (HubSpot, Marketo and similar) often live in iframes without their own URL.
+      match_about_blank: true
     }
   ]
 }

@@ -139,15 +139,25 @@ function textMatches(spec, text) {
   return spec.re.test(text) && !(spec.not && spec.not.test(text))
 }
 
+// A long label is a question ("Share your open-source work… and your role in each"), not a field
+// name: only its opening words say what is being asked.
+// Open-ended questions ("Why this company…", "Tell us about…") never ask for a profile value.
+function labelForMatching(label) {
+  const words = label.split(' ')
+  if (words.length > 6 && /^(why|what|how|describe|tell|explain|share|please (describe|explain|tell|share))\b/.test(label)) return ''
+  return words.length > 12 ? words.slice(0, 8).join(' ') : label
+}
+
 // Returns { key, score } or null
 export function scoreElement(el) {
   const s = getSignals(el)
   if (isSensitive(el, s)) return null
+  const label = labelForMatching(s.label)
   let best = null
   for (const spec of FIELD_SPECS) {
     let score = 0
     if (spec.ac && s.ac.some((t) => spec.ac.includes(t))) score += WEIGHTS.ac
-    if (textMatches(spec, s.label)) score += WEIGHTS.label
+    if (textMatches(spec, label)) score += WEIGHTS.label
     if (textMatches(spec, s.nameId)) score += WEIGHTS.nameId
     if (textMatches(spec, s.placeholder)) score += WEIGHTS.placeholder
     if (spec.type && spec.type.includes(s.type)) score += WEIGHTS.type

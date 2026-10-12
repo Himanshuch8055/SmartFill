@@ -17,6 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Questions shown above a field instead of in a label (Lever custom questions, many React forms) are now read, so saved answers match them.
 - "Current location" and "Where are you currently located?" fields are filled with your city.
 - "How did you hear about this opportunity?" now matches a saved "How did you hear about this job?" answer.
+- Long essay questions ("Share your open-source work… and your role", "Why this company…") are no longer mistaken for profile fields like job title or company.
+- Forms embedded in frames without their own address (HubSpot, Marketo and similar embeds) are now detected.
 
 ## [1.1.0] - 2026-10-12
 
