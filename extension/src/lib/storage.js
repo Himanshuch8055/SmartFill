@@ -1,5 +1,7 @@
 // Storage helpers with multi-profile support. Also exports legacy getProfile/saveProfile wrappers.
 
+import { LOCK_KEY, LockedError, getKey, isLockEnabled, encryptJSON, decryptJSON, isEncrypted, enableLock, disableLock, changePin, resetLock } from './vault'
+
 export const SCHEMA_VERSION = 3
 
 export const DEFAULT_PROFILE_DATA = {
@@ -51,17 +53,67 @@ export function migrateProfiles(profiles) {
   return profiles.map((p) => ({ ...p, data: { ...DEFAULT_PROFILE_DATA, ...(p.data || {}) } }))
 }
 
+// ---------- PIN lock: protected values ----------
+// Profiles and resume files are stored encrypted while the PIN lock is on (see vault.js).
+
+async function openValue(value) {
+  if (!isEncrypted(value)) return value
+  const key = await getKey()
+  if (!key) throw new LockedError()
+  return decryptJSON(key, value)
+}
+
+async function sealValue(value) {
+  const key = await getKey()
+  if (key) return encryptJSON(key, value)
+  if (await isLockEnabled()) throw new LockedError()
+  return value
+}
+
+// Writes to storage, encrypting profiles and resume files when the lock is on.
+async function writeStore(obj) {
+  const out = { ...obj }
+  for (const k of Object.keys(out)) {
+    if ((k === 'profiles' || k.startsWith('resume:')) && out[k] != null) out[k] = await sealValue(out[k])
+  }
+  await chrome.storage.local.set(out)
+}
+
+// Re-saves all protected data with `key` (null = plain) together with the new lock settings.
+async function rewriteProtected(key, lock) {
+  const { profiles } = await ensureProfiles()
+  const resumes = await getResumes(profiles.map((p) => p.id))
+  const out = { profiles: key ? await encryptJSON(key, profiles) : profiles }
+  for (const [id, r] of Object.entries(resumes)) out[resumeKey(id)] = key ? await encryptJSON(key, r) : r
+  if (lock) out[LOCK_KEY] = lock
+  await chrome.storage.local.set(out)
+  if (!lock) await chrome.storage.local.remove(LOCK_KEY)
+}
+
+export const setPin = (pin, options) => enableLock(pin, rewriteProtected, options)
+export const removePin = (pin) => disableLock(pin, rewriteProtected)
+export const updatePin = (oldPin, newPin) => changePin(oldPin, newPin, rewriteProtected)
+
+// Forgotten PIN: delete profiles and resumes (settings, rules and snippets stay).
+export async function resetAfterForgottenPin() {
+  await resetLock(async () => {
+    const all = await chrome.storage.local.get(null)
+    await chrome.storage.local.remove(['profiles', 'activeProfileId', 'siteProfiles', ...Object.keys(all).filter((k) => k.startsWith('resume:'))])
+  })
+}
+
 async function ensureProfiles() {
-  const { profiles, activeProfileId, profile: legacy, schemaVersion } = await chrome.storage.local.get([
+  const { profiles: stored, activeProfileId, profile: legacy, schemaVersion } = await chrome.storage.local.get([
     'profiles',
     'activeProfileId',
     'profile',
     'schemaVersion'
   ])
+  const profiles = await openValue(stored)
   if (Array.isArray(profiles) && profiles.length) {
     if ((schemaVersion || 1) < SCHEMA_VERSION) {
       const migrated = migrateProfiles(profiles)
-      await chrome.storage.local.set({ profiles: migrated, schemaVersion: SCHEMA_VERSION })
+      await writeStore({ profiles: migrated, schemaVersion: SCHEMA_VERSION })
       return { profiles: migrated, activeProfileId: activeProfileId || migrated[0].id }
     }
     return { profiles, activeProfileId: activeProfileId || profiles[0].id }
@@ -70,7 +122,7 @@ async function ensureProfiles() {
   const data = legacy || DEFAULT_PROFILE_DATA
   const id = genId()
   const migrated = [{ id, name: 'Default', data: { ...DEFAULT_PROFILE_DATA, ...data } }]
-  await chrome.storage.local.set({ profiles: migrated, activeProfileId: id, schemaVersion: SCHEMA_VERSION })
+  await writeStore({ profiles: migrated, activeProfileId: id, schemaVersion: SCHEMA_VERSION })
   return { profiles: migrated, activeProfileId: id }
 }
 
@@ -82,7 +134,7 @@ export async function getProfiles() {
 export async function saveProfiles(nextProfiles, nextActiveId) {
   const payload = { profiles: nextProfiles }
   if (nextActiveId) payload.activeProfileId = nextActiveId
-  await chrome.storage.local.set(payload)
+  await writeStore(payload)
 }
 
 export async function getActiveProfile() {
@@ -100,7 +152,7 @@ export async function createProfile(name = 'New Profile', data = DEFAULT_PROFILE
   const { profiles } = await ensureProfiles()
   const id = genId()
   const next = [...profiles, { id, name, data: { ...DEFAULT_PROFILE_DATA, ...data } }]
-  await chrome.storage.local.set({ profiles: next, activeProfileId: id })
+  await writeStore({ profiles: next, activeProfileId: id })
   return id
 }
 
@@ -134,7 +186,7 @@ export async function duplicateProfile(id) {
   const copyId = genId()
   const copy = { id: copyId, name: `${src.name} Copy`, data: { ...src.data } }
   const resume = await getResume(id)
-  await chrome.storage.local.set({ profiles: [...profiles, copy], activeProfileId: copyId, ...(resume ? { [resumeKey(copyId)]: resume } : {}) })
+  await writeStore({ profiles: [...profiles, copy], activeProfileId: copyId, ...(resume ? { [resumeKey(copyId)]: resume } : {}) })
   return copyId
 }
 
@@ -184,7 +236,7 @@ export async function importProfiles(payload) {
       }
     }
   }
-  await chrome.storage.local.set(next)
+  await writeStore(next)
 }
 
 // ---------- Per-site controls ----------
@@ -282,14 +334,18 @@ function isValidResume(r) {
 export async function getResume(profileId) {
   const key = resumeKey(profileId)
   const data = await chrome.storage.local.get([key])
-  return isValidResume(data[key]) ? data[key] : null
+  const r = await openValue(data[key])
+  return isValidResume(r) ? r : null
 }
 
 async function getResumes(profileIds) {
   const keys = profileIds.map(resumeKey)
   const data = await chrome.storage.local.get(keys)
   const out = {}
-  for (const id of profileIds) if (isValidResume(data[resumeKey(id)])) out[id] = data[resumeKey(id)]
+  for (const id of profileIds) {
+    const r = await openValue(data[resumeKey(id)])
+    if (isValidResume(r)) out[id] = r
+  }
   return out
 }
 
@@ -298,7 +354,7 @@ export async function setResume(profileId, resume) {
   if (resume) {
     if (!isValidResume(resume)) throw new Error('Invalid resume file')
     if (resume.size > RESUME_MAX_BYTES) throw new Error('Resume is larger than 2 MB')
-    await chrome.storage.local.set({ [resumeKey(profileId)]: resume })
+    await writeStore({ [resumeKey(profileId)]: resume })
   } else {
     await chrome.storage.local.remove(resumeKey(profileId))
   }

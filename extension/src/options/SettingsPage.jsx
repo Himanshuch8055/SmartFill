@@ -1,6 +1,7 @@
 import React from 'react'
 import { Switch, SegmentedControl, Checkbox, Select, setThemePreference } from '../ui'
 import { PageHeader, Group, SettingRow, TextButton } from './layout'
+import PinLockSettings from './PinLock'
 import { t, LANGUAGES } from '../lib/i18n'
 
 const isFirefox = /firefox/i.test(navigator.userAgent)
@@ -13,7 +14,7 @@ function useShortcuts() {
   return commands
 }
 
-export default function SettingsPage({ data }) {
+export default function SettingsPage({ data, toast }) {
   const shortcuts = useShortcuts()
   const set = (obj) => chrome.storage.local.set(obj)
 
@@ -67,6 +68,8 @@ export default function SettingsPage({ data }) {
           <Switch id="set-testdata" checked={data.testDataEnabled} onChange={(on) => set({ testDataEnabled: on })} />
         </SettingRow>
       </Group>
+
+      <PinLockSettings data={data} toast={toast} />
 
       <Group title={t('Appearance')}>
         <SettingRow label={t('Theme')}>

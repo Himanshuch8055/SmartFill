@@ -10,8 +10,11 @@ export function useExtensionData() {
   const [data, setData] = React.useState(null)
 
   const load = React.useCallback(async () => {
-    const [prof, local] = await Promise.all([send({ type: 'GET_PROFILES' }), chrome.storage.local.get(SETTING_KEYS)])
+    const [prof, local, lock] = await Promise.all([send({ type: 'GET_PROFILES' }), chrome.storage.local.get(SETTING_KEYS), send({ type: 'GET_LOCK_STATE' })])
+    if (prof?.locked) return setData({ locked: true })
     setData({
+      lockEnabled: !!lock?.enabled,
+      autoLockMinutes: lock?.autoLockMinutes || 0,
       profiles: prof?.profiles || [],
       activeId: prof?.activeProfileId || '',
       popupProfileIds: Array.isArray(local.popupProfileIds) ? local.popupProfileIds : [],
@@ -34,8 +37,10 @@ export function useExtensionData() {
   React.useEffect(() => {
     load()
     let timer = 0
-    const onChanged = (_changes, area) => {
-      if (area !== 'local') return
+    const onChanged = (changes, area) => {
+      // The PIN lock keeps its key in session storage: reload when SmartFill is locked or unlocked.
+      if (area === 'session' && !('vaultKey' in changes)) return
+      if (area !== 'local' && area !== 'session') return
       clearTimeout(timer)
       timer = setTimeout(load, 50)
     }

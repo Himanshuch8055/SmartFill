@@ -22,9 +22,17 @@ import {
   addHistory,
   clearHistory,
   getResume,
+  setPin,
+  removePin,
+  updatePin,
+  resetAfterForgottenPin,
   setResume
 } from './lib/storage'
 import { makeTestProfile } from './lib/testData'
+import { unlock, lockNow, isLocked, isLockEnabled, getLockConfig, setAutoLock, attemptsWait } from './lib/vault'
+
+const lockedMessage = () => t('SmartFill is locked. Click the SmartFill icon in the toolbar and enter your PIN.')
+const lockedReply = () => ({ ok: false, locked: true, error: lockedMessage() })
 import { PROFILE_FIELDS } from './lib/profileFields'
 import { GOODBYE_URL } from './lib/links'
 import { t, initLanguage } from './lib/i18n'
@@ -104,7 +112,18 @@ chrome.tabs.onRemoved?.addListener((tabId) => {
 
 // preview: true/false forces a mode; undefined uses the user's setting (default: preview)
 // continuation: this is a later step of a form already filled in this tab
-async function autofillTab(tab, { preview, profile, continuation = false, testData = false } = {}) {
+async function autofillTab(tab, options = {}) {
+  try {
+    return await autofillTabUnlocked(tab, options)
+  } catch (e) {
+    if (e?.code !== 'LOCKED') throw e
+    // Shortcuts and the right-click menu have no popup to show this in: say it on the page.
+    chrome.tabs.sendMessage(tab.id, { type: 'TOAST', text: lockedMessage() }).catch(() => {})
+    return lockedReply()
+  }
+}
+
+async function autofillTabUnlocked(tab, { preview, profile, continuation = false, testData = false } = {}) {
   const host = hostOf(tab.url)
   if (await isSiteBlocked(host)) return { ok: false, error: t('SmartFill is turned off on {host}', { host }) }
   // Test data: a new made-up person per fill, kept for the next steps of the same form.
@@ -160,8 +179,13 @@ chrome.commands?.onCommand.addListener(async (command) => {
   if (!tab?.id) return
   if (command === 'fill-form') await autofillTab(tab)
   else if (command === 'undo-fill') await undoTab(tab.id)
-  else if (command === 'next-profile') await cycleProfile(tab.id)
+  else if (command === 'next-profile') await cycleProfile(tab.id).catch((e) => showLockedOnPage(e, tab))
 })
+
+function showLockedOnPage(e, tab) {
+  if (e?.code !== 'LOCKED') throw e
+  chrome.tabs.sendMessage(tab.id, { type: 'TOAST', text: lockedMessage() }).catch(() => {})
+}
 
 // ---------- Context menu ----------
 
@@ -203,7 +227,12 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
     await undoTab(tab.id)
   } else if (id.startsWith('sf-field:')) {
     const key = id.slice('sf-field:'.length)
-    const profile = (await getProfileForHost(host))?.data || (await getProfile())
+    let profile
+    try {
+      profile = (await getProfileForHost(host))?.data || (await getProfile())
+    } catch (e) {
+      return showLockedOnPage(e, tab)
+    }
     chrome.tabs
       .sendMessage(tab.id, { type: 'FILL_FIELD', key, profile }, { frameId: info.frameId ?? 0 })
       .catch(() => {})
@@ -244,201 +273,257 @@ function isRestrictedUrl(url = '') {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
-    switch (message?.type) {
-      case 'PING':
-        sendResponse({ ok: true, ts: Date.now() })
-        break
-      case 'GET_PROFILE': {
-        const profile = await getProfile()
-        sendResponse({ profile })
-        break
-      }
-      case 'SAVE_PROFILE': {
-        // Update active profile's data
-        const active = await getActiveProfile()
-        if (active?.id) await updateProfile(active.id, message.profile || {})
-        sendResponse({ ok: true })
-        break
-      }
-      case 'GET_PROFILES': {
-        const profiles = await getProfiles()
-        const active = await getActiveProfile()
-        sendResponse({ ok: true, profiles, activeProfileId: active?.id })
-        break
-      }
-      case 'SET_ACTIVE_PROFILE': {
-        await setActiveProfile(message.id)
-        const active = await getActiveProfile()
-        sendResponse({ ok: true, activeProfileId: active?.id })
-        break
-      }
-      case 'CREATE_PROFILE': {
-        const id = await createProfile(message.name, message.data)
-        sendResponse({ ok: true, id })
-        break
-      }
-      case 'UPDATE_PROFILE': {
-        await updateProfile(message.id, message.data || {})
-        sendResponse({ ok: true })
-        break
-      }
-      case 'RENAME_PROFILE': {
-        await renameProfile(message.id, message.name)
-        sendResponse({ ok: true })
-        break
-      }
-      case 'DELETE_PROFILE': {
-        await deleteProfile(message.id)
-        const active = await getActiveProfile()
-        sendResponse({ ok: true, activeProfileId: active?.id })
-        break
-      }
-      case 'DUPLICATE_PROFILE': {
-        const id = await duplicateProfile(message.id)
-        sendResponse({ ok: true, id })
-        break
-      }
-      case 'EXPORT_PROFILES': {
-        const payload = await exportProfiles()
-        sendResponse({ ok: true, payload })
-        break
-      }
-      case 'IMPORT_PROFILES': {
-        try {
-          await importProfiles(message.payload)
-          const active = await getActiveProfile()
-          sendResponse({ ok: true, activeProfileId: active?.id })
-        } catch (e) {
-          sendResponse({ ok: false, error: e?.message })
-        }
-        break
-      }
-      case 'GET_RULES': {
-        const rules = await getRules()
-        sendResponse({ ok: true, rules })
-        break
-      }
-      case 'SAVE_RULES': {
-        await saveRules(message.rules || [])
-        sendResponse({ ok: true })
-        break
-      }
-      case 'AUTOFILL_ACTIVE': {
-        const tab = await getActiveTab()
-        if (!tab?.id) {
-          sendResponse({ ok: false, error: t('No active tab') })
-          break
-        }
-        sendResponse(await autofillTab(tab, { preview: message.preview, profile: message.profile, testData: message.testData === true }))
-        break
-      }
-      case 'UNDO_ACTIVE': {
-        const tab = await getActiveTab()
-        sendResponse(tab?.id ? await undoTab(tab.id) : { ok: false, error: t('No active tab') })
-        break
-      }
-      // Everything the popup needs about the current tab in one call.
-      case 'GET_TAB_STATE': {
-        const tab = await getActiveTab()
-        const url = tab?.url || ''
-        const restricted = isRestrictedUrl(url)
-        const host = restricted ? '' : hostOf(url)
-        const siteProfiles = await getSiteProfiles()
-        sendResponse({
-          ok: true,
-          host,
-          restricted,
-          fieldCount: tab?.id != null && !restricted ? await getTabCount(tab.id) : null,
-          blocked: host ? await isSiteBlocked(host) : false,
-          siteProfileId: (host && siteProfiles[host]) || '',
-        })
-        break
-      }
-      case 'GET_SITE_STATE': {
-        const siteProfiles = await getSiteProfiles()
-        sendResponse({ ok: true, blocked: await isSiteBlocked(message.host), siteProfileId: siteProfiles[message.host] || '' })
-        break
-      }
-      case 'SET_SITE_BLOCKED': {
-        await setSiteBlocked(message.host, !!message.blocked)
-        sendResponse({ ok: true })
-        break
-      }
-      case 'SET_SITE_PROFILE': {
-        await setSiteProfile(message.host, message.profileId || '')
-        sendResponse({ ok: true })
-        break
-      }
-      // What the content script needs to count fillable fields: answers and whether a resume exists.
-      case 'START_FILL_SESSION': {
-        await startSession(sender.tab)
-        sendResponse({ ok: true })
-        break
-      }
-      case 'END_FILL_SESSION': {
-        if (sender.tab?.id != null) await endSession(sender.tab.id)
-        sendResponse({ ok: true })
-        break
-      }
-      case 'GET_FILL_SESSION': {
-        const session = sender.tab?.id != null ? await getSession(sender.tab.id) : null
-        sendResponse({ ok: true, active: !!session && sameSite(session.host, hostOf(sender.tab.url)) })
-        break
-      }
-      // The content script found new empty fields during a session: fill the next step.
-      case 'CONTINUE_FILL': {
-        const tab = sender.tab
-        const session = tab?.id != null ? await getSession(tab.id) : null
-        const { continueFill } = await chrome.storage.local.get(['continueFill'])
-        if (!session || continueFill === false || !sameSite(session.host, hostOf(tab.url))) {
-          sendResponse({ ok: false, inactive: true })
-          break
-        }
-        sendResponse(await autofillTab(tab, { continuation: true }))
-        break
-      }
-      case 'GET_FILL_CONTEXT': {
-        const p = await getProfileForHost(message.host)
-        sendResponse({ ok: true, answers: p?.data?.answers || [], hasResume: !!p?.data?.resume })
-        break
-      }
-      case 'SET_RESUME': {
-        try {
-          await setResume(message.id, message.resume || null)
-          sendResponse({ ok: true })
-        } catch (e) {
-          sendResponse({ ok: false, error: e?.message || t("Couldn't save the file") })
-        }
-        break
-      }
-      case 'ADD_RULE': {
-        await addRule(message.rule)
-        sendResponse({ ok: true })
-        break
-      }
-      case 'FIELD_COUNT': {
-        if (sender.tab?.id) await setTabCount(sender.tab.id, message.count)
-        sendResponse({ ok: true })
-        break
-      }
-      case 'CLEAR_HISTORY': {
-        await clearHistory(message.host)
-        sendResponse({ ok: true })
-        break
-      }
-      case 'FILL_DONE': {
-        const { fillCount = 0 } = await chrome.storage.local.get(['fillCount'])
-        await chrome.storage.local.set({ fillCount: fillCount + 1 })
-        const tabId = sender.tab?.id
-        const key = `fillProfile:${tabId}`
-        const names = await chrome.storage.session.get(key).catch(() => ({}))
-        await addHistory({ host: hostOf(sender.tab?.url || ''), profile: names[key], filled: message.filled, tabId, continuation: message.continuation })
-        sendResponse({ ok: true })
-        break
-      }
-      default:
-        sendResponse({ ok: false, error: t('Unknown message type') })
+    try {
+      await handleMessage(message, sender, sendResponse)
+    } catch (e) {
+      if (e?.code === 'LOCKED') sendResponse(lockedReply())
+      else sendResponse({ ok: false, error: e?.message || String(e) })
     }
   })()
   return true // keep message channel open for async
 })
+
+// Messages from pages that only extension pages may send (not content scripts).
+const fromExtensionPage = (sender) => !sender.tab || sender.url?.startsWith(chrome.runtime.getURL(''))
+
+async function handleMessage(message, sender, sendResponse) {
+  switch (message?.type) {
+    case 'GET_LOCK_STATE': {
+      const lock = await getLockConfig()
+      sendResponse({ ok: true, enabled: !!lock, locked: await isLocked(), autoLockMinutes: lock?.autoLockMinutes || 0, waitMs: await attemptsWait() })
+      break
+    }
+    case 'UNLOCK': {
+      if (!fromExtensionPage(sender)) return sendResponse({ ok: false })
+      sendResponse(await unlock(message.pin))
+      break
+    }
+    case 'LOCK_NOW': {
+      await lockNow()
+      sendResponse({ ok: true })
+      break
+    }
+    case 'SET_PIN': {
+      if (!fromExtensionPage(sender)) return sendResponse({ ok: false })
+      if (await isLockEnabled()) return sendResponse({ ok: false, error: 'A PIN is already set' })
+      await setPin(String(message.pin || ''), { autoLockMinutes: Number(message.autoLockMinutes) || 0 })
+      sendResponse({ ok: true })
+      break
+    }
+    case 'CHANGE_PIN': {
+      if (!fromExtensionPage(sender)) return sendResponse({ ok: false })
+      sendResponse(await updatePin(String(message.oldPin || ''), String(message.newPin || '')))
+      break
+    }
+    case 'REMOVE_PIN': {
+      if (!fromExtensionPage(sender)) return sendResponse({ ok: false })
+      sendResponse(await removePin(String(message.pin || '')))
+      break
+    }
+    case 'SET_AUTO_LOCK': {
+      if (await isLocked()) return sendResponse(lockedReply())
+      await setAutoLock(message.minutes)
+      sendResponse({ ok: true })
+      break
+    }
+    case 'RESET_FORGOTTEN_PIN': {
+      if (!fromExtensionPage(sender)) return sendResponse({ ok: false })
+      await resetAfterForgottenPin()
+      sendResponse({ ok: true })
+      break
+    }
+    case 'PING':
+      sendResponse({ ok: true, ts: Date.now() })
+      break
+    case 'GET_PROFILE': {
+      const profile = await getProfile()
+      sendResponse({ profile })
+      break
+    }
+    case 'SAVE_PROFILE': {
+      // Update active profile's data
+      const active = await getActiveProfile()
+      if (active?.id) await updateProfile(active.id, message.profile || {})
+      sendResponse({ ok: true })
+      break
+    }
+    case 'GET_PROFILES': {
+      const profiles = await getProfiles()
+      const active = await getActiveProfile()
+      sendResponse({ ok: true, profiles, activeProfileId: active?.id })
+      break
+    }
+    case 'SET_ACTIVE_PROFILE': {
+      await setActiveProfile(message.id)
+      const active = await getActiveProfile()
+      sendResponse({ ok: true, activeProfileId: active?.id })
+      break
+    }
+    case 'CREATE_PROFILE': {
+      const id = await createProfile(message.name, message.data)
+      sendResponse({ ok: true, id })
+      break
+    }
+    case 'UPDATE_PROFILE': {
+      await updateProfile(message.id, message.data || {})
+      sendResponse({ ok: true })
+      break
+    }
+    case 'RENAME_PROFILE': {
+      await renameProfile(message.id, message.name)
+      sendResponse({ ok: true })
+      break
+    }
+    case 'DELETE_PROFILE': {
+      await deleteProfile(message.id)
+      const active = await getActiveProfile()
+      sendResponse({ ok: true, activeProfileId: active?.id })
+      break
+    }
+    case 'DUPLICATE_PROFILE': {
+      const id = await duplicateProfile(message.id)
+      sendResponse({ ok: true, id })
+      break
+    }
+    case 'EXPORT_PROFILES': {
+      const payload = await exportProfiles()
+      sendResponse({ ok: true, payload })
+      break
+    }
+    case 'IMPORT_PROFILES': {
+      try {
+        await importProfiles(message.payload)
+        const active = await getActiveProfile()
+        sendResponse({ ok: true, activeProfileId: active?.id })
+      } catch (e) {
+        sendResponse({ ok: false, error: e?.message })
+      }
+      break
+    }
+    case 'GET_RULES': {
+      const rules = await getRules()
+      sendResponse({ ok: true, rules })
+      break
+    }
+    case 'SAVE_RULES': {
+      await saveRules(message.rules || [])
+      sendResponse({ ok: true })
+      break
+    }
+    case 'AUTOFILL_ACTIVE': {
+      const tab = await getActiveTab()
+      if (!tab?.id) {
+        sendResponse({ ok: false, error: t('No active tab') })
+        break
+      }
+      sendResponse(await autofillTab(tab, { preview: message.preview, profile: message.profile, testData: message.testData === true }))
+      break
+    }
+    case 'UNDO_ACTIVE': {
+      const tab = await getActiveTab()
+      sendResponse(tab?.id ? await undoTab(tab.id) : { ok: false, error: t('No active tab') })
+      break
+    }
+    // Everything the popup needs about the current tab in one call.
+    case 'GET_TAB_STATE': {
+      const tab = await getActiveTab()
+      const url = tab?.url || ''
+      const restricted = isRestrictedUrl(url)
+      const host = restricted ? '' : hostOf(url)
+      const siteProfiles = await getSiteProfiles()
+      sendResponse({
+        ok: true,
+        host,
+        restricted,
+        fieldCount: tab?.id != null && !restricted ? await getTabCount(tab.id) : null,
+        blocked: host ? await isSiteBlocked(host) : false,
+        siteProfileId: (host && siteProfiles[host]) || '',
+      })
+      break
+    }
+    case 'GET_SITE_STATE': {
+      const siteProfiles = await getSiteProfiles()
+      sendResponse({ ok: true, blocked: await isSiteBlocked(message.host), siteProfileId: siteProfiles[message.host] || '' })
+      break
+    }
+    case 'SET_SITE_BLOCKED': {
+      await setSiteBlocked(message.host, !!message.blocked)
+      sendResponse({ ok: true })
+      break
+    }
+    case 'SET_SITE_PROFILE': {
+      await setSiteProfile(message.host, message.profileId || '')
+      sendResponse({ ok: true })
+      break
+    }
+    // What the content script needs to count fillable fields: answers and whether a resume exists.
+    case 'START_FILL_SESSION': {
+      await startSession(sender.tab)
+      sendResponse({ ok: true })
+      break
+    }
+    case 'END_FILL_SESSION': {
+      if (sender.tab?.id != null) await endSession(sender.tab.id)
+      sendResponse({ ok: true })
+      break
+    }
+    case 'GET_FILL_SESSION': {
+      const session = sender.tab?.id != null ? await getSession(sender.tab.id) : null
+      sendResponse({ ok: true, active: !!session && sameSite(session.host, hostOf(sender.tab.url)) })
+      break
+    }
+    // The content script found new empty fields during a session: fill the next step.
+    case 'CONTINUE_FILL': {
+      const tab = sender.tab
+      const session = tab?.id != null ? await getSession(tab.id) : null
+      const { continueFill } = await chrome.storage.local.get(['continueFill'])
+      if (!session || continueFill === false || !sameSite(session.host, hostOf(tab.url))) {
+        sendResponse({ ok: false, inactive: true })
+        break
+      }
+      sendResponse(await autofillTab(tab, { continuation: true }))
+      break
+    }
+    case 'GET_FILL_CONTEXT': {
+      const p = await getProfileForHost(message.host)
+      sendResponse({ ok: true, answers: p?.data?.answers || [], hasResume: !!p?.data?.resume })
+      break
+    }
+    case 'SET_RESUME': {
+      try {
+        await setResume(message.id, message.resume || null)
+        sendResponse({ ok: true })
+      } catch (e) {
+        sendResponse({ ok: false, error: e?.message || t("Couldn't save the file") })
+      }
+      break
+    }
+    case 'ADD_RULE': {
+      await addRule(message.rule)
+      sendResponse({ ok: true })
+      break
+    }
+    case 'FIELD_COUNT': {
+      if (sender.tab?.id) await setTabCount(sender.tab.id, message.count)
+      sendResponse({ ok: true })
+      break
+    }
+    case 'CLEAR_HISTORY': {
+      await clearHistory(message.host)
+      sendResponse({ ok: true })
+      break
+    }
+    case 'FILL_DONE': {
+      const { fillCount = 0 } = await chrome.storage.local.get(['fillCount'])
+      await chrome.storage.local.set({ fillCount: fillCount + 1 })
+      const tabId = sender.tab?.id
+      const key = `fillProfile:${tabId}`
+      const names = await chrome.storage.session.get(key).catch(() => ({}))
+      await addHistory({ host: hostOf(sender.tab?.url || ''), profile: names[key], filled: message.filled, tabId, continuation: message.continuation })
+      sendResponse({ ok: true })
+      break
+    }
+    default:
+      sendResponse({ ok: false, error: t('Unknown message type') })
+  }
+}

@@ -6,3 +6,4 @@ export { Card, SectionHeader, Badge, Kbd, Progress, EmptyState, Divider, Logo } 
 export { Dialog, ConfirmDialog, DropdownMenu, Tooltip, ToastProvider, useToast } from './Overlay'
 export { initTheme, applyTheme, setThemePreference, THEMES } from './theme'
 export { themeCss } from './tokens'
+export { UnlockForm } from './UnlockForm'
