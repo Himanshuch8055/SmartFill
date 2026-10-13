@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.2.0] - YYYY-MM-DD
+
 ### Added
 - AI answers (optional, off by default): right-click a free-text question and choose "Draft an answer with AI" to get a draft written from your profile and the page, using your own Anthropic API key. The draft goes into the field for you to edit (with Undo); nothing is submitted. Only the question, page text and non-contact profile details are sent, and only when you ask. Access to the AI service is an optional permission requested when you turn the feature on. Settings → AI answers.
 - PIN lock (optional): encrypts your profiles and resume files on the device (AES-256-GCM, key derived from your PIN). Enter the PIN once per browser session, or set SmartFill to lock after 15 minutes, 1 hour or 4 hours without use. Lock now from the popup. A forgotten PIN can't be recovered; SmartFill can be reset (profiles deleted, settings kept) and restored from a backup. Settings → PIN lock.
@@ -64,6 +66,7 @@ First public release.
 - Never fills or reads password, payment card, one-time code, CAPTCHA or government ID fields.
 - Minimal permissions: `storage`, `activeTab` and `contextMenus`.
 
-[Unreleased]: https://github.com/Himanshuch8055/SmartFill/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Himanshuch8055/SmartFill/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Himanshuch8055/SmartFill/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Himanshuch8055/SmartFill/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Himanshuch8055/SmartFill/releases/tag/v1.0.0
