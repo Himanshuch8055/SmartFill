@@ -193,7 +193,9 @@ globalThis.chrome = {
     onInstalled: event(),
     async sendMessage(msg) {
       await ready
-      return deliver(listenersOf('background'), msg, { tab: activeTab })
+      // Like the browser: content scripts send from a tab; extension pages send from their own URL.
+      const sender = contentPage ? { tab: activeTab, url: location.href } : { url: location.pathname }
+      return deliver(listenersOf('background'), msg, sender)
     },
   },
   tabs: {

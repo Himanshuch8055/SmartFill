@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- PIN lock (optional): encrypts your profiles and resume files on the device (AES-256-GCM, key derived from your PIN). Enter the PIN once per browser session, or set SmartFill to lock after 15 minutes, 1 hour or 4 hours without use. Lock now from the popup. A forgotten PIN can't be recovered; SmartFill can be reset (profiles deleted, settings kept) and restored from a backup. Settings → PIN lock.
 - Custom dropdowns: SmartFill now picks options in search-as-you-type dropdowns (React Select and similar), used by Greenhouse, Ashby and many others for country, location and screening questions.
 - Hindi translation (हिन्दी). SmartFill follows your browser language, or pick one in Settings → Appearance → Language. The store listing name and description are translated too.
 - Test data for developers: turn on "Fill with test data" in Settings → Developers to fill forms with a new made-up person each time (example.com emails, fake phone numbers, matching city/state/country). Available from the popup and the right-click menu, and kept for the next steps of a multi-page form.

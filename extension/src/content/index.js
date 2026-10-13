@@ -57,7 +57,7 @@ function applyWidgetState(widgetEnabled, blockedSites) {
         await initLanguage()
         widget?.setCount(lastCount)
       }
-      if ('profiles' in changes || 'activeProfileId' in changes || 'siteProfiles' in changes) {
+      if ('profiles' in changes || 'activeProfileId' in changes || 'siteProfiles' in changes || 'lock' in changes) {
         fillContext = null // answers or resume may have changed
         if (isTop) reportFieldCount()
       }

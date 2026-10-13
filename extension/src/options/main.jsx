@@ -2,7 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import '../styles.css'
 import { Plus } from 'lucide-react'
-import { initTheme, IconButton, ToastProvider, useToast, cn } from '../ui'
+import { initTheme, IconButton, ToastProvider, useToast, UnlockForm, ConfirmDialog, cn } from '../ui'
 import { useExtensionData, useRoute, send, go } from './data'
 import ProfilePage from './ProfilePage'
 import SitesPage from './SitesPage'
@@ -86,6 +86,30 @@ function Sidebar({ data, route }) {
   )
 }
 
+// While locked, settings can't show profiles. A forgotten PIN can only be reset, which deletes them.
+function LockedScreen() {
+  const [confirmReset, setConfirmReset] = React.useState(false)
+  return (
+    <div className="min-h-screen bg-bg text-fg grid place-items-center px-4">
+      <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-6 shadow-sf-sm">
+        <UnlockForm onUnlocked={() => location.reload()} onForgot={() => setConfirmReset(true)} />
+      </div>
+      <ConfirmDialog
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        onConfirm={async () => {
+          await send({ type: 'RESET_FORGOTTEN_PIN' })
+          location.reload()
+        }}
+        title={t('Reset SmartFill?')}
+        description={t("Your PIN can't be recovered. Resetting deletes your profiles and resume files and removes the PIN. Snippets, site rules and settings stay. You can restore profiles from a backup file afterwards.")}
+        confirmLabel={t('Delete profiles and reset')}
+        danger
+      />
+    </div>
+  )
+}
+
 function Options() {
   const [data] = useExtensionData()
   const route = useRoute()
@@ -93,11 +117,13 @@ function Options() {
 
   if (!data) return <div className="min-h-screen bg-bg" aria-busy="true" />
 
+  if (data.locked) return <LockedScreen />
+
   let content
   if (route.page === 'sites') content = <SitesPage data={data} />
   else if (route.page === 'snippets') content = <SnippetsPage data={data} />
   else if (route.page === 'history') content = <HistoryPage data={data} />
-  else if (route.page === 'settings') content = <SettingsPage data={data} />
+  else if (route.page === 'settings') content = <SettingsPage data={data} toast={toast} />
   else if (route.page === 'backup') content = <BackupPage data={data} toast={toast} />
   else if (route.page === 'about') content = <AboutPage />
   else {
