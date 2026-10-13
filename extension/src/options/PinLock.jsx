@@ -58,7 +58,7 @@ function PinDialog({ mode, open, onClose, onDone }) {
       <form onSubmit={submit} className="mt-4 space-y-3">
         {mode === 'set' && (
           <p className="text-[13px] text-fg-muted">
-            {t('Your profiles and resume files will be encrypted. You enter the PIN once, and again after SmartFill locks.')}
+            {t('Your profiles, resume files, snippets and AI key will be encrypted. You enter the PIN once, and again after SmartFill locks.')}
           </p>
         )}
         {needsCurrent && (
@@ -105,11 +105,11 @@ export default function PinLockSettings({ data, toast }) {
   return (
     <Group
       title={t('PIN lock')}
-      description={t('Keeps your profiles private from other people using this computer. Snippets, history and site settings are not encrypted.')}
+      description={t('Keeps your profiles private from other people using this computer. History and site settings are not encrypted.')}
     >
       <SettingRow
         label={data.lockEnabled ? t('PIN lock is on') : t('Lock SmartFill with a PIN')}
-        description={data.lockEnabled ? t('Your profiles and resume files are encrypted.') : t('Ask for a PIN before your details can be used or viewed.')}
+        description={data.lockEnabled ? t('Your profiles, resume files, snippets and AI key are encrypted.') : t('Ask for a PIN before your details can be used or viewed.')}
       >
         {data.lockEnabled ? (
           <div className="flex items-center gap-3">

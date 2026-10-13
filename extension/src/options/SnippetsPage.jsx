@@ -4,7 +4,9 @@ import { normalizeTrigger, validateSnippet, SNIPPET_MAX_LENGTH } from '../lib/sn
 import { PageHeader, Group, SettingRow, EmptyRow, TextButton } from './layout'
 import { t } from '../lib/i18n'
 
-const save = (snippets) => chrome.storage.local.set({ snippets })
+import { send } from './data'
+
+const save = (snippets) => send({ type: 'SAVE_SNIPPETS', snippets })
 
 function SnippetForm({ initial, others, onSave, onCancel }) {
   const [trigger, setTrigger] = React.useState(initial?.trigger || ';')

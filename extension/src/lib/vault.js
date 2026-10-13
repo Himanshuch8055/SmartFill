@@ -142,8 +142,16 @@ export async function enableLock(pin, rewrite, { autoLockMinutes = 0 } = {}) {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const key = await deriveKey(pin, salt)
   const lock = { v: 1, salt: toB64(salt), iterations: ITERATIONS, check: await encryptJSON(key, CHECK_TEXT), autoLockMinutes }
-  await rewrite(key, lock)
-  await keepKey(key)
+  // rewrite() reads the data with the current key, then calls this just before its single write,
+  // so writes that happen meanwhile already use the new key. On failure the old key is put back.
+  const { [SESSION_KEY]: previous } = await chrome.storage.session.get([SESSION_KEY])
+  try {
+    await rewrite(key, lock, () => keepKey(key))
+  } catch (e) {
+    if (previous) await chrome.storage.session.set({ [SESSION_KEY]: previous })
+    else await lockNow()
+    throw e
+  }
 }
 
 export async function disableLock(pin, rewrite) {

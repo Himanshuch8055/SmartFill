@@ -14,6 +14,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Fill history: a new History page lists where you used SmartFill (site, profile, number of fields; steps of one form are grouped). The popup shows "Filled here 3 days ago" on sites you already filled. Stays on your device, never stores what was filled, and can be turned off or cleared.
 - Text snippets: save text under a shortcut like `;addr`, then type the shortcut in any text field or editor to insert it. `{date}` and `{time}` are filled in when inserted. Never runs in password or payment fields, or on sites you turned off. Manage them on the new Snippets page in Settings.
 
+### Security
+- Web pages can no longer ask SmartFill's background for your data: only SmartFill's own pages can read, export, import or change profiles, rules and settings. The on-page button fills only its own page with your own profile.
+- Snippets are now encrypted with the PIN lock and don't expand while SmartFill is locked. A forgotten-PIN reset removes them too.
+- A resume can no longer be deleted while SmartFill is locked, and changing the PIN can't leave data that was saved at the same moment unreadable.
+- AI drafts need your right-click on the field (a one-time token), so nothing else can spend your API key.
+- Custom dropdowns only pick options from their own list, never from other menus or links on the page.
+
 ### Fixed
 - A list of checkboxes could be mistaken for a profile field (for example "Telugu (TEL)" filled as a phone number). Checkboxes are no longer used for profile fields.
 - Questions shown above a field instead of in a label (Lever custom questions, many React forms) are now read, so saved answers match them.

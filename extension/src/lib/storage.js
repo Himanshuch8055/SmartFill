@@ -70,37 +70,50 @@ async function sealValue(value) {
   return value
 }
 
+// Values encrypted while the PIN lock is on (plus every resume:<id> file).
+const PROTECTED_KEYS = new Set(['profiles', 'aiKey', 'snippets'])
+
 // Writes to storage, encrypting profiles and resume files when the lock is on.
 async function writeStore(obj) {
   const out = { ...obj }
   for (const k of Object.keys(out)) {
-    if ((k === 'profiles' || k === 'aiKey' || k.startsWith('resume:')) && out[k] != null) out[k] = await sealValue(out[k])
+    if (PROTECTED_KEYS.has(k) || k.startsWith('resume:')) {
+      if (out[k] != null) out[k] = await sealValue(out[k])
+    }
   }
   await chrome.storage.local.set(out)
 }
 
 // Re-saves all protected data with `key` (null = plain) together with the new lock settings.
-async function rewriteProtected(key, lock) {
+async function rewriteProtected(key, lock, beforeWrite) {
   const { profiles } = await ensureProfiles()
   const resumes = await getResumes(profiles.map((p) => p.id))
   const out = { profiles: key ? await encryptJSON(key, profiles) : profiles }
   for (const [id, r] of Object.entries(resumes)) out[resumeKey(id)] = key ? await encryptJSON(key, r) : r
   const aiKey = await getAiKey()
   if (aiKey) out.aiKey = key ? await encryptJSON(key, aiKey) : aiKey
+  const snippets = await getSnippets()
+  if (snippets.length) out.snippets = key ? await encryptJSON(key, snippets) : snippets
   if (lock) out[LOCK_KEY] = lock
+  await beforeWrite?.()
   await chrome.storage.local.set(out)
   if (!lock) await chrome.storage.local.remove(LOCK_KEY)
+  // Resume files of profiles that no longer exist would otherwise stay unencrypted.
+  const all = await chrome.storage.local.get(null)
+  const orphans = Object.keys(all).filter((k) => k.startsWith('resume:') && !profiles.some((p) => resumeKey(p.id) === k))
+  if (orphans.length) await chrome.storage.local.remove(orphans)
 }
 
 export const setPin = (pin, options) => enableLock(pin, rewriteProtected, options)
 export const removePin = (pin) => disableLock(pin, rewriteProtected)
 export const updatePin = (oldPin, newPin) => changePin(oldPin, newPin, rewriteProtected)
 
-// Forgotten PIN: delete profiles and resumes (settings, rules and snippets stay).
+// Forgotten PIN: delete everything the PIN protected (profiles, resumes, snippets, AI key).
+// Settings and site rules stay.
 export async function resetAfterForgottenPin() {
   await resetLock(async () => {
     const all = await chrome.storage.local.get(null)
-    await chrome.storage.local.remove(['profiles', 'activeProfileId', 'siteProfiles', 'aiKey', ...Object.keys(all).filter((k) => k.startsWith('resume:'))])
+    await chrome.storage.local.remove(['profiles', 'activeProfileId', 'siteProfiles', 'aiKey', 'snippets', ...Object.keys(all).filter((k) => k.startsWith('resume:'))])
   })
 }
 
@@ -200,6 +213,7 @@ export async function exportProfiles() {
   const { profiles, activeProfileId } = await ensureProfiles()
   const extra = await chrome.storage.local.get(['rules', 'blockedSites', 'siteProfiles', ...BACKUP_SETTING_KEYS])
   const settings = Object.fromEntries(BACKUP_SETTING_KEYS.filter((k) => k in extra).map((k) => [k, extra[k]]))
+  if ('snippets' in settings) settings.snippets = await getSnippets() // stored encrypted when the PIN lock is on
   return {
     version: 2,
     exportedAt: new Date().toISOString(),
@@ -357,11 +371,12 @@ export async function setResume(profileId, resume) {
     if (!isValidResume(resume)) throw new Error('Invalid resume file')
     if (resume.size > RESUME_MAX_BYTES) throw new Error('Resume is larger than 2 MB')
     await writeStore({ [resumeKey(profileId)]: resume })
+    await updateProfile(profileId, { resume: { name: resume.name, type: resume.type, size: resume.size } })
   } else {
+    // Update the profile first: it fails while locked, so the file is never deleted then.
+    await updateProfile(profileId, { resume: null })
     await chrome.storage.local.remove(resumeKey(profileId))
   }
-  const meta = resume ? { name: resume.name, type: resume.type, size: resume.size } : null
-  await updateProfile(profileId, { resume: meta })
 }
 
 // ---------- Fill history ----------
@@ -407,4 +422,17 @@ export async function setAiKey(key) {
   const clean = String(key || '').trim()
   if (clean) await writeStore({ aiKey: clean })
   else await chrome.storage.local.remove('aiKey')
+}
+
+// ---------- Snippets ----------
+// Encrypted with the profiles when the PIN lock is on (they often hold an address or a bio).
+
+export async function getSnippets() {
+  const { snippets } = await chrome.storage.local.get(['snippets'])
+  const list = await openValue(snippets)
+  return Array.isArray(list) ? list : []
+}
+
+export async function saveSnippets(list) {
+  await writeStore({ snippets: Array.isArray(list) ? list : [] })
 }

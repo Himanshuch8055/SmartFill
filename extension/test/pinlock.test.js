@@ -71,7 +71,7 @@ describe('PIN lock', () => {
     expect((await work()).data.email).toBe('asha@example.com')
   }, 60000)
 
-  it('resets after a forgotten PIN, keeping settings', async () => {
+  it('resets after a forgotten PIN: protected data goes, settings stay', async () => {
     await chrome.storage.local.set({ fillMode: 'instant', snippets: [{ trigger: ';a', text: 'x' }] })
     await setPin('2468')
     await lockNow()
@@ -80,7 +80,8 @@ describe('PIN lock', () => {
     const profiles = await getProfiles() // a fresh empty profile
     expect(profiles.map((p) => p.data.email)).toEqual([''])
     const { fillMode, snippets } = await chrome.storage.local.get(['fillMode', 'snippets'])
-    expect([fillMode, snippets.length]).toEqual(['instant', 1])
+    expect(fillMode).toBe('instant')
+    expect(snippets).toBeUndefined() // snippets were encrypted with the forgotten PIN
   }, 30000)
 
   it('locks again after the auto-lock time without use', async () => {
@@ -90,4 +91,36 @@ describe('PIN lock', () => {
     await chrome.storage.session.set({ vaultKey: { ...s.vaultKey, lastUsed: Date.now() - 16 * 60_000 } })
     expect(await isLocked()).toBe(true)
   }, 30000)
+})
+
+describe('PIN lock hardening', () => {
+  it('encrypts snippets and hides them while locked', async () => {
+    const { saveSnippets, getSnippets } = await import('../src/lib/storage.js')
+    await saveSnippets([{ trigger: ';addr', text: '12 MG Road, Pune' }])
+    await setPin('2468')
+    expect(JSON.stringify(chrome.storage.local._raw())).not.toContain('MG Road')
+    await lockNow()
+    await expect(getSnippets()).rejects.toMatchObject({ code: 'LOCKED' })
+    await unlock('2468')
+    expect((await getSnippets())[0].text).toBe('12 MG Road, Pune')
+  }, 30000)
+
+  it('never deletes a resume while locked', async () => {
+    await setPin('2468')
+    const id = (await work()).id
+    await lockNow()
+    await expect(setResume(id, null)).rejects.toMatchObject({ code: 'LOCKED' })
+    await unlock('2468')
+    expect((await getResume(id)).name).toBe('cv.pdf')
+  }, 30000)
+
+  it('keeps data readable when it is changed during a PIN change', async () => {
+    await setPin('2468')
+    const id = (await work()).id
+    await Promise.all([updatePin('2468', '1357'), updateProfile(id, { city: 'Pune' })])
+    await lockNow()
+    await unlock('1357')
+    expect((await work()).data.email).toBe('asha@example.com')
+    expect((await getResume(id)).name).toBe('cv.pdf')
+  }, 60000)
 })

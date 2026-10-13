@@ -5,7 +5,7 @@ import { PROFILE_FIELDS } from '../lib/profileFields'
 import { showPreview, showToast, showFieldPrompt } from './preview'
 import { mountWidget } from './widget'
 import { buildSelector } from '../lib/selector'
-import { expandAtCaret } from '../lib/snippets'
+import { expandAtCaret, canExpandIn } from '../lib/snippets'
 import { t, tn, initLanguage } from '../lib/i18n'
 
 console.debug('SmartFill content script loaded')
@@ -75,20 +75,40 @@ function applyWidgetState(widgetEnabled, blockedSites) {
 
 let snippets = []
 let snippetsOn = true
+let snippetsStale = true // fetched lazily, the first time a text field gets focus
+let lockOn = false // with the PIN lock, unlocking happens elsewhere: re-check now and then
+let lastSnippetFetch = 0
 
-async function loadSnippets() {
+async function loadSnippetSettings() {
   try {
-    const { snippets: list, snippetsEnabled, blockedSites } = await chrome.storage.local.get(['snippets', 'snippetsEnabled', 'blockedSites'])
-    snippets = Array.isArray(list) ? list : []
+    const { snippetsEnabled, blockedSites, lock } = await chrome.storage.local.get(['snippetsEnabled', 'blockedSites', 'lock'])
     snippetsOn = snippetsEnabled !== false && !(Array.isArray(blockedSites) && blockedSites.includes(location.host))
+    lockOn = !!lock
+    snippetsStale = true
   } catch {}
 }
-loadSnippets()
+
+// Snippets come from the background: encrypted with the PIN lock, and none while locked.
+async function fetchSnippets() {
+  lastSnippetFetch = Date.now()
+  snippetsStale = false
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'GET_SNIPPETS' })
+    snippets = Array.isArray(res?.snippets) ? res.snippets : []
+  } catch {}
+}
+
+loadSnippetSettings()
 try {
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && ('snippets' in changes || 'snippetsEnabled' in changes || 'blockedSites' in changes)) loadSnippets()
+    if (area === 'local' && ('snippets' in changes || 'snippetsEnabled' in changes || 'blockedSites' in changes || 'lock' in changes)) loadSnippetSettings()
   })
 } catch {}
+
+document.addEventListener('focusin', (e) => {
+  if (!snippetsOn || !canExpandIn(e.composedPath?.()[0] || e.target)) return
+  if (snippetsStale || (lockOn && Date.now() - lastSnippetFetch > 5000)) fetchSnippets()
+}, true)
 
 document.addEventListener('input', (e) => {
   if (!snippetsOn || !snippets.length || e.isComposing || e.inputType !== 'insertText' || !e.isTrusted) return
@@ -111,7 +131,7 @@ function pageContext() {
 }
 
 let drafting = false
-async function draftWithAi(el) {
+async function draftWithAi(el, token) {
   if (drafting) return
   if (!el?.isConnected || !isTextBox(el) || isSensitive(el)) return showToast(t('Right-click a text box to draft an answer.'), { tone: 'danger' })
   const question = fieldQuestion(el) || el.getAttribute('placeholder') || ''
@@ -121,6 +141,7 @@ async function draftWithAi(el) {
   try {
     const res = await chrome.runtime.sendMessage({
       type: 'AI_DRAFT',
+      token,
       question,
       pageTitle: document.title,
       pageText: pageContext(),
@@ -496,7 +517,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return true
     }
     case 'AI_DRAFT_FIELD': {
-      draftWithAi(lastContextTarget)
+      draftWithAi(lastContextTarget, msg.token)
       return false
     }
     case 'TOAST': {

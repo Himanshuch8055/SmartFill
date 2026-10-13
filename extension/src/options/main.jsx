@@ -102,7 +102,7 @@ function LockedScreen() {
           location.reload()
         }}
         title={t('Reset SmartFill?')}
-        description={t("Your PIN can't be recovered. Resetting deletes your profiles and resume files and removes the PIN. Snippets, site rules and settings stay. You can restore profiles from a backup file afterwards.")}
+        description={t("Your PIN can't be recovered. Resetting deletes your profiles, resume files, snippets and AI key, and removes the PIN. Site rules and settings stay. You can restore from a backup file afterwards.")}
         confirmLabel={t('Delete profiles and reset')}
         danger
       />
