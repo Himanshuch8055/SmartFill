@@ -79,7 +79,7 @@ UI text is written in English and wrapped in `t('…')` (or `tn(n, one, other)` 
 
 1. Update `version` in `extension/manifest.config.js` and move *Unreleased* entries in `CHANGELOG.md` to the new version.
 2. Merge to `main`, then tag: `git tag v1.2.3 && git push origin v1.2.3`.
-3. The Release workflow builds the zips and creates a draft GitHub Release. Upload the zips to the Chrome Web Store and Firefox Add-ons, then publish the release.
+3. The Release workflow builds the zips and creates a draft GitHub Release. Run through [docs/release-checklist.md](docs/release-checklist.md), upload the zips to the Chrome Web Store and Firefox Add-ons, then publish the release.
 
 ## Code of Conduct
 

@@ -6,7 +6,7 @@ export default {
   name: "__MSG_appName__",
   description: "__MSG_appDesc__",
   default_locale: "en",
-  version: "1.1.0",
+  version: "1.2.0",
   icons: {
     16: "icons/icon16.png",
     32: "icons/icon32.png",

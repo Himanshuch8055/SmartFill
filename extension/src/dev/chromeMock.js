@@ -257,8 +257,8 @@ import('../background.js')
       await import('../content/index.js')
       loadingOwner = 'page'
     } else if (fieldsParam !== 'unknown') {
-      // Report the field count the way the content script would.
-      chrome.runtime.sendMessage({ type: 'FIELD_COUNT', count: fieldCount }).catch(() => {})
+      // Report the field count the way the content script would (from the tab).
+      deliver(listenersOf('background'), { type: 'FIELD_COUNT', count: fieldCount }, { tab: activeTab, url: site })
     }
   })
   .finally(() => markReady())
