@@ -26,9 +26,12 @@ import {
   removePin,
   updatePin,
   resetAfterForgottenPin,
+  getAiKey,
+  setAiKey,
   setResume
 } from './lib/storage'
 import { makeTestProfile } from './lib/testData'
+import { draftAnswer, AI_ORIGIN, DEFAULT_MODEL } from './lib/ai'
 import { unlock, lockNow, isLocked, isLockEnabled, getLockConfig, setAutoLock, attemptsWait } from './lib/vault'
 
 const lockedMessage = () => t('SmartFill is locked. Click the SmartFill icon in the toolbar and enter your PIN.')
@@ -51,7 +54,7 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 
 // The "Fill with test data" menu item follows the developer setting; titles follow the language.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && ('testDataEnabled' in changes || 'language' in changes)) createContextMenus()
+  if (area === 'local' && ('testDataEnabled' in changes || 'aiEnabled' in changes || 'language' in changes)) createContextMenus()
 })
 
 // ---------- Fill helpers ----------
@@ -190,17 +193,26 @@ function showLockedOnPage(e, tab) {
 // ---------- Context menu ----------
 
 let testDataMenu = false
+let aiMenu = false
+
+async function aiSettings() {
+  const { aiEnabled, aiModel } = await chrome.storage.local.get(['aiEnabled', 'aiModel'])
+  const permitted = await chrome.permissions?.contains({ origins: [AI_ORIGIN] }).catch(() => false)
+  return { enabled: aiEnabled === true && !!permitted, model: aiModel || DEFAULT_MODEL }
+}
 
 // Loads the language first, so it also picks up a language change.
 async function createContextMenus() {
   await initLanguage()
   testDataMenu = (await chrome.storage.local.get(['testDataEnabled'])).testDataEnabled === true
+  aiMenu = (await aiSettings()).enabled
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: 'sf-fill', title: t('SmartFill: Fill this form'), contexts: ['page', 'editable'] })
     chrome.contextMenus.create({ id: 'sf-field', title: t('Fill this field with'), contexts: ['editable'] })
     for (const f of PROFILE_FIELDS) {
       chrome.contextMenus.create({ id: `sf-field:${f.name}`, parentId: 'sf-field', title: t(f.label), contexts: ['editable'] })
     }
+    if (aiMenu) chrome.contextMenus.create({ id: 'sf-ai', title: t('SmartFill: Draft an answer with AI'), contexts: ['editable'] })
     if (testDataMenu) chrome.contextMenus.create({ id: 'sf-test', title: t('SmartFill: Fill with test data'), contexts: ['page', 'editable'] })
     chrome.contextMenus.create({ id: 'sf-undo', title: t('SmartFill: Undo last fill'), contexts: ['page', 'editable'] })
     chrome.contextMenus.create({ id: 'sf-toggle-site', title: t('SmartFill: Turn on/off for this site'), contexts: ['page', 'editable'] })
@@ -221,6 +233,8 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
   if (await isSiteBlocked(host)) return
   if (id === 'sf-fill') {
     await autofillTab(tab)
+  } else if (id === 'sf-ai') {
+    chrome.tabs.sendMessage(tab.id, { type: 'AI_DRAFT_FIELD' }, { frameId: info.frameId ?? 0 }).catch(() => {})
   } else if (id === 'sf-test') {
     await autofillTab(tab, { testData: true })
   } else if (id === 'sf-undo') {
@@ -324,6 +338,41 @@ async function handleMessage(message, sender, sendResponse) {
       if (await isLocked()) return sendResponse(lockedReply())
       await setAutoLock(message.minutes)
       sendResponse({ ok: true })
+      break
+    }
+    case 'GET_AI_STATE': {
+      const { enabled, model } = await aiSettings()
+      const { aiEnabled } = await chrome.storage.local.get(['aiEnabled'])
+      sendResponse({ ok: true, enabled, wanted: aiEnabled === true, model, hasKey: !!(await getAiKey()) })
+      break
+    }
+    case 'SET_AI_KEY': {
+      if (!fromExtensionPage(sender)) return sendResponse({ ok: false })
+      await setAiKey(message.key)
+      sendResponse({ ok: true })
+      break
+    }
+    case 'TEST_AI_KEY': {
+      if (!fromExtensionPage(sender)) return sendResponse({ ok: false })
+      const { model } = await aiSettings()
+      sendResponse(await draftAnswer({ apiKey: message.key || (await getAiKey()), model, question: 'Reply with the single word OK.', maxLength: 20 }))
+      break
+    }
+    case 'AI_DRAFT': {
+      // From the content script, after the user chose "Draft an answer with AI" on a field.
+      const { enabled, model } = await aiSettings()
+      if (!enabled) return sendResponse({ ok: false, error: t('Turn on AI answers in SmartFill settings first.') })
+      const host = hostOf(sender.tab?.url || '')
+      const profile = (await getProfileForHost(host))?.data || (await getProfile())
+      sendResponse(await draftAnswer({
+        apiKey: await getAiKey(),
+        model,
+        question: String(message.question || '').slice(0, 1000),
+        pageTitle: String(message.pageTitle || '').slice(0, 200),
+        pageText: String(message.pageText || ''),
+        maxLength: Number(message.maxLength) || 0,
+        profile,
+      }))
       break
     }
     case 'RESET_FORGOTTEN_PIN': {
