@@ -189,10 +189,35 @@ function Features() {
             <span className={kbd}>F</span>
           </div>
         </Card>
+        <Card className="md:col-span-2" title="Long forms, every step" text="Fill the first step of a multi-page form and SmartFill keeps going on the next ones. It only fills empty fields.">
+          <div className="w-full flex items-center gap-2 text-sm">
+            {['You', 'Work', 'Education'].map((step, i) => (
+              <React.Fragment key={step}>
+                {i > 0 && <span className="h-px min-w-2 flex-1 bg-line" aria-hidden />}
+                <span className="flex items-center gap-1 whitespace-nowrap rounded-full border border-line bg-bg px-2.5 py-1 text-fg-muted">
+                  <Check size={13} className="text-success" aria-hidden /> {step}
+                </span>
+              </React.Fragment>
+            ))}
+          </div>
+        </Card>
+        <Card className="md:col-span-2" title="Text snippets" text="Type a shortcut like ;addr in any text box and it turns into your saved text.">
+          <div className="w-full rounded-lg border border-line bg-bg px-3.5 py-2.5 text-sm">
+            <span className="text-fg-subtle line-through">;addr</span>
+            <span className="mx-2 text-fg-subtle" aria-hidden>→</span>
+            <span className="text-fg">221B Baker Street, London</span>
+          </div>
+        </Card>
+        <Card className="md:col-span-2" title="Remembers where you applied" text="A private history of your fills, and a “Filled here 3 days ago” note when you come back. In English and हिन्दी.">
+          <div className="w-full rounded-xl border border-line bg-bg px-4 py-1.5">
+            <Row label="jobs.lever.co" value="12 fields · 3 steps" state="fill" />
+            <Row label="boards.greenhouse.io" value="9 fields" state="fill" />
+          </div>
+        </Card>
         <Card
           className="md:col-span-3"
           title="Ready for job applications"
-          text="Attaches your resume, answers screening questions like visa sponsorship and relocation, and fills education and experience fields on Greenhouse, Lever and company forms."
+          text="Attaches your resume, answers screening questions like visa sponsorship and relocation, and fills education and experience fields. Tested on Greenhouse, Lever, Ashby and Workable."
         >
           <div className="flex flex-wrap gap-2">
             {['Resume upload', 'Screening questions', 'LinkedIn', 'GitHub', 'Education', 'Notice period', 'Expected salary'].map((t) => (
@@ -219,6 +244,9 @@ const COMPARE = [
   ['Job-application fields (LinkedIn, notice period, salary…)', true, false],
   ['Custom fields for anything else', true, false],
   ['Remembers corrections for each site', true, false],
+  ['Picks options in search-as-you-type dropdowns', true, false],
+  ['Keeps filling on the next steps of long forms', true, false],
+  ['Text snippets you trigger by typing', true, false],
   ['Separate profiles you can switch between', true, 'Limited'],
   ['Google Forms', true, 'Rarely'],
 ]
