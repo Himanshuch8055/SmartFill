@@ -39,6 +39,8 @@ export default {
   },
   // Content scripts on all pages power the widget, badge and field learning; no extra host permissions needed.
   permissions: ["storage", "activeTab", "contextMenus"],
+  // Only requested when the user turns on AI answers (their own API key), never at install.
+  optional_host_permissions: ["https://api.anthropic.com/*"],
   commands: {
     "fill-form": {
       suggested_key: { default: "Alt+Shift+F" },

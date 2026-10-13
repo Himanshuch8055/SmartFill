@@ -223,6 +223,12 @@ globalThis.chrome = {
   },
   action: { setBadgeText: noop, setBadgeBackgroundColor: noop },
   contextMenus: { create: () => {}, removeAll: (cb) => cb?.(), onClicked: event() },
+  // Optional host permissions (AI answers): granted on request, remembered for this tab.
+  permissions: {
+    async contains({ origins = [] }) { const g = JSON.parse(sessionStorage.getItem('sf-dev-perms') || '[]'); return origins.every((o) => g.includes(o)) },
+    async request({ origins = [] }) { const g = new Set(JSON.parse(sessionStorage.getItem('sf-dev-perms') || '[]')); origins.forEach((o) => g.add(o)); sessionStorage.setItem('sf-dev-perms', JSON.stringify([...g])); return true },
+    async remove({ origins = [] }) { const g = JSON.parse(sessionStorage.getItem('sf-dev-perms') || '[]').filter((o) => !origins.includes(o)); sessionStorage.setItem('sf-dev-perms', JSON.stringify(g)); return true },
+  },
   commands: {
     onCommand: event(),
     getAll: async () => [

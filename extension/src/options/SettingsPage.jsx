@@ -2,6 +2,7 @@ import React from 'react'
 import { Switch, SegmentedControl, Checkbox, Select, setThemePreference } from '../ui'
 import { PageHeader, Group, SettingRow, TextButton } from './layout'
 import PinLockSettings from './PinLock'
+import AiAnswers from './AiAnswers'
 import { t, LANGUAGES } from '../lib/i18n'
 
 const isFirefox = /firefox/i.test(navigator.userAgent)
@@ -70,6 +71,8 @@ export default function SettingsPage({ data, toast }) {
       </Group>
 
       <PinLockSettings data={data} toast={toast} />
+
+      <AiAnswers toast={toast} />
 
       <Group title={t('Appearance')}>
         <SettingRow label={t('Theme')}>

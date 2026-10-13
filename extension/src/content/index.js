@@ -1,4 +1,5 @@
 // Content script
+import { questionText as fieldQuestion, isSensitive, fillElement } from '../lib/detectFields'
 import { findFillableInputs, fillFields, settleComboboxes, deriveProfile, snapshot, restore, findAnswerTargets, findResumeInputs, isEmptyTarget } from '../lib/detectFields'
 import { PROFILE_FIELDS } from '../lib/profileFields'
 import { showPreview, showToast, showFieldPrompt } from './preview'
@@ -96,6 +97,47 @@ document.addEventListener('input', (e) => {
     expandAtCaret(target, snippets, e.data || '')
   } catch {}
 }, true)
+
+// ---------- AI answers ----------
+// Right-click a text box → "Draft an answer with AI". The question, page text and profile go to the
+// AI only now, with the user's own key; the draft is put in the field to review, never submitted.
+
+const isTextBox = (el) =>
+  !!el && (el.tagName === 'TEXTAREA' || el.isContentEditable || (el.tagName === 'INPUT' && /^(text|search|)$/.test(String(el.getAttribute('type') || '').toLowerCase())))
+
+function pageContext() {
+  const main = document.querySelector('main, [role="main"], article') || document.body
+  return String(main.innerText || '').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+let drafting = false
+async function draftWithAi(el) {
+  if (drafting) return
+  if (!el?.isConnected || !isTextBox(el) || isSensitive(el)) return showToast(t('Right-click a text box to draft an answer.'), { tone: 'danger' })
+  const question = fieldQuestion(el) || el.getAttribute('placeholder') || ''
+  if (!question) return showToast(t("Couldn't find the question for this field."), { tone: 'danger' })
+  drafting = true
+  showToast(t('Drafting an answer…'), { timeout: 30000 })
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: 'AI_DRAFT',
+      question,
+      pageTitle: document.title,
+      pageText: pageContext(),
+      maxLength: el.maxLength > 0 ? el.maxLength : 0,
+    })
+    if (!res?.ok) return showToast(res?.error || t('Something went wrong.'), { tone: 'danger' })
+    const map = { __ai: [el] }
+    const snap = snapshot(map)
+    if (!fillElement('__ai', el, res.text)) return showToast(t('Something went wrong.'), { tone: 'danger' })
+    lastSnapshot = snap
+    showToast(t('Draft added. Read it and edit it before you submit.'), { actionLabel: t('Undo'), onAction: undoFill, timeout: 12000 })
+  } catch {
+    showToast(t('Something went wrong.'), { tone: 'danger' })
+  } finally {
+    drafting = false
+  }
+}
 
 // ---------- Autofill ----------
 
@@ -452,6 +494,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true, filled })
       })()
       return true
+    }
+    case 'AI_DRAFT_FIELD': {
+      draftWithAi(lastContextTarget)
+      return false
     }
     case 'TOAST': {
       if (isTop && (!siteBlocked || msg.force)) showToast(msg.text)

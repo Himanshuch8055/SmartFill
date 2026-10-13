@@ -74,7 +74,7 @@ async function sealValue(value) {
 async function writeStore(obj) {
   const out = { ...obj }
   for (const k of Object.keys(out)) {
-    if ((k === 'profiles' || k.startsWith('resume:')) && out[k] != null) out[k] = await sealValue(out[k])
+    if ((k === 'profiles' || k === 'aiKey' || k.startsWith('resume:')) && out[k] != null) out[k] = await sealValue(out[k])
   }
   await chrome.storage.local.set(out)
 }
@@ -85,6 +85,8 @@ async function rewriteProtected(key, lock) {
   const resumes = await getResumes(profiles.map((p) => p.id))
   const out = { profiles: key ? await encryptJSON(key, profiles) : profiles }
   for (const [id, r] of Object.entries(resumes)) out[resumeKey(id)] = key ? await encryptJSON(key, r) : r
+  const aiKey = await getAiKey()
+  if (aiKey) out.aiKey = key ? await encryptJSON(key, aiKey) : aiKey
   if (lock) out[LOCK_KEY] = lock
   await chrome.storage.local.set(out)
   if (!lock) await chrome.storage.local.remove(LOCK_KEY)
@@ -98,7 +100,7 @@ export const updatePin = (oldPin, newPin) => changePin(oldPin, newPin, rewritePr
 export async function resetAfterForgottenPin() {
   await resetLock(async () => {
     const all = await chrome.storage.local.get(null)
-    await chrome.storage.local.remove(['profiles', 'activeProfileId', 'siteProfiles', ...Object.keys(all).filter((k) => k.startsWith('resume:'))])
+    await chrome.storage.local.remove(['profiles', 'activeProfileId', 'siteProfiles', 'aiKey', ...Object.keys(all).filter((k) => k.startsWith('resume:'))])
   })
 }
 
@@ -390,4 +392,19 @@ export async function addHistory({ host, profile, filled, tabId, continuation },
 export async function clearHistory(host) {
   const list = host ? (await getHistory()).filter((e) => e.host !== host) : []
   await chrome.storage.local.set({ fillHistory: list })
+}
+
+// ---------- AI answers ----------
+// The user's own API key. Encrypted with the profiles when the PIN lock is on; never in backups.
+
+export async function getAiKey() {
+  const { aiKey } = await chrome.storage.local.get(['aiKey'])
+  const key = await openValue(aiKey)
+  return typeof key === 'string' ? key : ''
+}
+
+export async function setAiKey(key) {
+  const clean = String(key || '').trim()
+  if (clean) await writeStore({ aiKey: clean })
+  else await chrome.storage.local.remove('aiKey')
 }
