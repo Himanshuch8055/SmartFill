@@ -83,10 +83,13 @@ Keyboard shortcuts: Alt+Shift+F fill · Alt+Shift+Z undo · Alt+Shift+P switch p
 | storage | Saves the user's profiles, site rules and preferences locally on the device. |
 | activeTab | Fills the current tab when the user clicks the toolbar button or uses a keyboard shortcut. |
 | contextMenus | Adds "Fill this form" / "Fill this field with…" to the right-click menu. |
+| api.anthropic.com (optional host permission) | Requested only when the user turns on AI answers; used to send the user's own draft requests with their own API key. |
 
 **Single purpose:** Fill web forms with information the user has saved in the extension.
 
 **Data usage disclosures:** The extension handles "Personally identifiable information" and "Location (address)" that the user enters themselves. It is stored locally only and is not collected, sold, or transferred. Check: not used for unrelated purposes, not used for creditworthiness, not sold.
+
+**Optional AI answers:** off by default. When the user turns it on, the extension requests the optional host permission `https://api.anthropic.com/*`. Only when the user chooses "Draft an answer with AI" on a field, the question, page text excerpt and non-contact profile details are sent to Anthropic with the user's own API key. Disclose under "Personally identifiable information" and "Website content": transferred to a third party only at the user's request, for the feature the user asked for. The developer never receives this data.
 
 **Remote code:** No.
 
