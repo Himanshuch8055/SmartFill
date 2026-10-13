@@ -46,7 +46,7 @@ const TEXT_TYPES = new Set(['', 'text', 'search', 'email', 'url', 'tel'])
 
 export function canExpandIn(el) {
   if (!el || el.disabled || el.readOnly) return false
-  if (el.isContentEditable) return true
+  if (el.isContentEditable) return !isSensitive(el)
   if (el.tagName === 'TEXTAREA') return !isSensitive(el)
   if (el.tagName !== 'INPUT') return false
   return TEXT_TYPES.has(String(el.getAttribute('type') || '').toLowerCase()) && !isSensitive(el)

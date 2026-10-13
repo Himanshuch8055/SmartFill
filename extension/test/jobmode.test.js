@@ -156,3 +156,23 @@ describe('questions shown above the field (Lever custom questions)', () => {
     expect(targets.some((t) => /language|why do you/.test(t.question))).toBe(false)
   })
 })
+
+describe('custom dropdowns without a linked list', () => {
+  it('never clicks options from a menu that was already on the page, or links', async () => {
+    const { fillCombobox } = await import('../src/lib/detectFields.js')
+    mount(`
+      <div role="listbox"><a href="#danger" role="option" id="old">India</a></div>
+      <label for="c">Country</label><input id="c" role="combobox">`)
+    // jsdom has no layout: report every element as visible.
+    const rects = Element.prototype.getClientRects
+    Element.prototype.getClientRects = () => [{}]
+    let clicked = false
+    document.getElementById('old').addEventListener('click', (e) => { clicked = true; e.preventDefault() })
+    try {
+      await fillCombobox(document.getElementById('c'), 'India', { timeout: 300 })
+    } finally {
+      Element.prototype.getClientRects = rects
+    }
+    expect(clicked).toBe(false)
+  })
+})

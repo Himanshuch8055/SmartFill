@@ -350,13 +350,17 @@ export function isCombobox(el) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-function visibleOptions(el) {
+// Options are clicked, so they must belong to this dropdown and never be links or buttons.
+const isSafeOption = (o) =>
+  o.getAttribute('aria-disabled') !== 'true' && !o.closest('a[href]') && !o.querySelector('a[href], button, input[type="submit"]')
+
+function visibleOptions(el, before) {
   const doc = el.ownerDocument
   const box = doc.getElementById(el.getAttribute('aria-controls') || el.getAttribute('aria-owns') || '')
-  const scope = box || doc
-  return Array.from(scope.querySelectorAll('[role="option"]')).filter(
-    (o) => (box || o.getClientRects().length) && o.getAttribute('aria-disabled') !== 'true'
-  )
+  if (box) return Array.from(box.querySelectorAll('[role="option"]')).filter(isSafeOption)
+  // No linked list: only accept a listbox that appeared after typing (not menus already on the page).
+  const boxes = Array.from(doc.querySelectorAll('[role="listbox"]')).filter((b) => !before.has(b) && b.getClientRects().length)
+  return boxes.flatMap((b) => Array.from(b.querySelectorAll('[role="option"]'))).filter((o) => o.getClientRects().length && isSafeOption(o))
 }
 
 function press(el, key) {
@@ -376,6 +380,7 @@ export async function fillCombobox(el, value, { timeout = 900 } = {}) {
   if (!el?.isConnected) return false
   const text = String(value)
   try { el.focus({ preventScroll: true }) } catch {}
+  const listboxesBefore = new Set(el.ownerDocument.querySelectorAll('[role="listbox"]'))
   // Some menus open on typing, others only on a click or ArrowDown.
   setNativeValue(el, '')
   el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, inputType: 'deleteContentBackward' }))
@@ -384,7 +389,7 @@ export async function fillCombobox(el, value, { timeout = 900 } = {}) {
   let options = []
   for (let waited = 0; waited <= timeout; waited += 100) {
     await sleep(100)
-    options = visibleOptions(el)
+    options = visibleOptions(el, listboxesBefore)
     if (options.length) break
     if (waited === 300) press(el, 'ArrowDown')
   }

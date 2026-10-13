@@ -10,7 +10,7 @@ export function useExtensionData() {
   const [data, setData] = React.useState(null)
 
   const load = React.useCallback(async () => {
-    const [prof, local, lock] = await Promise.all([send({ type: 'GET_PROFILES' }), chrome.storage.local.get(SETTING_KEYS), send({ type: 'GET_LOCK_STATE' })])
+    const [prof, local, lock, snip] = await Promise.all([send({ type: 'GET_PROFILES' }), chrome.storage.local.get(SETTING_KEYS), send({ type: 'GET_LOCK_STATE' }), send({ type: 'GET_SNIPPETS' })])
     if (prof?.locked) return setData({ locked: true })
     setData({
       lockEnabled: !!lock?.enabled,
@@ -21,7 +21,7 @@ export function useExtensionData() {
       widgetEnabled: local.widgetEnabled !== false,
       fillMode: local.fillMode === 'instant' ? 'instant' : 'preview',
       continueFill: local.continueFill !== false,
-      snippets: Array.isArray(local.snippets) ? local.snippets : [],
+      snippets: Array.isArray(snip?.snippets) ? snip.snippets : [],
       snippetsEnabled: local.snippetsEnabled !== false,
       fillHistory: Array.isArray(local.fillHistory) ? local.fillHistory : [],
       historyEnabled: local.historyEnabled !== false,

@@ -28,11 +28,20 @@ import {
   resetAfterForgottenPin,
   getAiKey,
   setAiKey,
+  getSnippets,
+  saveSnippets,
   setResume
 } from './lib/storage'
 import { makeTestProfile } from './lib/testData'
 import { draftAnswer, AI_ORIGIN, DEFAULT_MODEL } from './lib/ai'
-import { unlock, lockNow, isLocked, isLockEnabled, getLockConfig, setAutoLock, attemptsWait } from './lib/vault'
+import { unlock, lockNow, isLocked, isLockEnabled, getLockConfig, setAutoLock, attemptsWait, isEncrypted } from './lib/vault'
+
+// Encrypted data without lock settings (damaged storage): treat as locked so the reset is offered.
+async function lockSettingsMissing() {
+  if (await getLockConfig()) return false
+  const { profiles } = await chrome.storage.local.get(['profiles'])
+  return isEncrypted(profiles)
+}
 
 const lockedMessage = () => t('SmartFill is locked. Click the SmartFill icon in the toolbar and enter your PIN.')
 const lockedReply = () => ({ ok: false, locked: true, error: lockedMessage() })
@@ -234,7 +243,10 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
   if (id === 'sf-fill') {
     await autofillTab(tab)
   } else if (id === 'sf-ai') {
-    chrome.tabs.sendMessage(tab.id, { type: 'AI_DRAFT_FIELD' }, { frameId: info.frameId ?? 0 }).catch(() => {})
+    // One-time token: a draft (which uses the user's paid API key) needs this right-click.
+    const token = crypto.randomUUID()
+    await chrome.storage.session.set({ [`aiToken:${tab.id}`]: { token, expires: Date.now() + 120_000 } })
+    chrome.tabs.sendMessage(tab.id, { type: 'AI_DRAFT_FIELD', token }, { frameId: info.frameId ?? 0 }).catch(() => {})
   } else if (id === 'sf-test') {
     await autofillTab(tab, { testData: true })
   } else if (id === 'sf-undo') {
@@ -300,15 +312,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Messages from pages that only extension pages may send (not content scripts).
 const fromExtensionPage = (sender) => !sender.tab || sender.url?.startsWith(chrome.runtime.getURL(''))
 
+// The only messages a content script (running inside web pages) may send. Everything else reads or
+// changes the user's data and is reserved for SmartFill's own pages, so a compromised page can't
+// export profiles while SmartFill is unlocked.
+const CONTENT_MESSAGES = new Set([
+  'PING', 'GET_LOCK_STATE', 'FIELD_COUNT', 'FILL_DONE', 'START_FILL_SESSION', 'END_FILL_SESSION', 'GET_FILL_SESSION',
+  'CONTINUE_FILL', 'GET_FILL_CONTEXT', 'ADD_RULE', 'AUTOFILL_ACTIVE', 'AI_DRAFT', 'GET_SNIPPETS',
+])
+
+// Keep the PIN lock's key away from content scripts (Chrome's default; explicit for other browsers).
+try { chrome.storage.session.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' })?.catch?.(() => {}) } catch {}
+
 async function handleMessage(message, sender, sendResponse) {
+  const fromPage = !fromExtensionPage(sender)
+  if (fromPage && !CONTENT_MESSAGES.has(message?.type)) return sendResponse({ ok: false, error: 'Not allowed' })
   switch (message?.type) {
     case 'GET_LOCK_STATE': {
       const lock = await getLockConfig()
-      sendResponse({ ok: true, enabled: !!lock, locked: await isLocked(), autoLockMinutes: lock?.autoLockMinutes || 0, waitMs: await attemptsWait() })
+      const damaged = await lockSettingsMissing()
+      sendResponse({ ok: true, enabled: !!lock || damaged, locked: damaged || (await isLocked()), autoLockMinutes: lock?.autoLockMinutes || 0, waitMs: await attemptsWait() })
       break
     }
     case 'UNLOCK': {
       if (!fromExtensionPage(sender)) return sendResponse({ ok: false })
+      if (await lockSettingsMissing()) return sendResponse({ ok: false, reason: 'wrong' })
       sendResponse(await unlock(message.pin))
       break
     }
@@ -340,6 +367,21 @@ async function handleMessage(message, sender, sendResponse) {
       sendResponse({ ok: true })
       break
     }
+    case 'GET_SNIPPETS': {
+      // Content scripts get none while locked; settings pages get the locked error.
+      try {
+        sendResponse({ ok: true, snippets: await getSnippets() })
+      } catch (e) {
+        if (e?.code === 'LOCKED' && fromPage) return sendResponse({ ok: true, snippets: [], locked: true })
+        throw e
+      }
+      break
+    }
+    case 'SAVE_SNIPPETS': {
+      await saveSnippets(message.snippets)
+      sendResponse({ ok: true })
+      break
+    }
     case 'GET_AI_STATE': {
       const { enabled, model } = await aiSettings()
       const { aiEnabled } = await chrome.storage.local.get(['aiEnabled'])
@@ -362,6 +404,10 @@ async function handleMessage(message, sender, sendResponse) {
       // From the content script, after the user chose "Draft an answer with AI" on a field.
       const { enabled, model } = await aiSettings()
       if (!enabled) return sendResponse({ ok: false, error: t('Turn on AI answers in SmartFill settings first.') })
+      const tokenKey = `aiToken:${sender.tab?.id}`
+      const { [tokenKey]: issued } = await chrome.storage.session.get(tokenKey)
+      await chrome.storage.session.remove(tokenKey)
+      if (!issued || issued.token !== message.token || issued.expires < Date.now()) return sendResponse({ ok: false, error: t('Right-click a text box to draft an answer.') })
       const host = hostOf(sender.tab?.url || '')
       const profile = (await getProfileForHost(host))?.data || (await getProfile())
       sendResponse(await draftAnswer({
@@ -460,6 +506,11 @@ async function handleMessage(message, sender, sendResponse) {
       break
     }
     case 'AUTOFILL_ACTIVE': {
+      // From the on-page button: fill that page, with the user's own profile only.
+      if (fromPage) {
+        sendResponse(await autofillTab(sender.tab))
+        break
+      }
       const tab = await getActiveTab()
       if (!tab?.id) {
         sendResponse({ ok: false, error: t('No active tab') })
@@ -534,7 +585,7 @@ async function handleMessage(message, sender, sendResponse) {
       break
     }
     case 'GET_FILL_CONTEXT': {
-      const p = await getProfileForHost(message.host)
+      const p = await getProfileForHost(fromPage ? hostOf(sender.tab.url) : message.host)
       sendResponse({ ok: true, answers: p?.data?.answers || [], hasResume: !!p?.data?.resume })
       break
     }
@@ -548,6 +599,14 @@ async function handleMessage(message, sender, sendResponse) {
       break
     }
     case 'ADD_RULE': {
+      // From the "remember this field" prompt: only a field-to-key rule for the sender's own site.
+      if (fromPage) {
+        const { selector, key } = message.rule || {}
+        if (typeof selector !== 'string' || !PROFILE_FIELDS.some((f) => f.name === key)) return sendResponse({ ok: false })
+        await addRule({ sitePattern: hostOf(sender.tab.url), selector: selector.slice(0, 500), key })
+        sendResponse({ ok: true })
+        break
+      }
       await addRule(message.rule)
       sendResponse({ ok: true })
       break
