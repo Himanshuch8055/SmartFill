@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { GITHUB_URL, CONTACT_EMAIL } from '../utils/links'
 
-const UPDATED = 'October 9, 2026'
+const UPDATED = 'October 13, 2026'
 
 export default function PrivacyPage() {
   React.useEffect(() => {
@@ -17,7 +17,7 @@ export default function PrivacyPage() {
       <div className="prose-site mt-8">
         <p>
           SmartFill is a browser extension that fills web forms with details you save. It is built so that your information never
-          leaves your browser.
+          leaves your browser, unless you turn on the optional AI answers feature described below and ask for a draft.
         </p>
 
         <h2>What SmartFill stores</h2>
@@ -28,6 +28,22 @@ export default function PrivacyPage() {
         <p>
           All of this is saved only in your browser’s extension storage on your device. It is not synced to any SmartFill server.
           There is no SmartFill server.
+        </p>
+        <p>
+          If you set a PIN, your profiles and resume files are stored encrypted on your device. Text snippets and a private history
+          of where you filled forms (site, profile and number of fields, never the values) are also stored only on your device, and
+          the history can be turned off or cleared.
+        </p>
+
+        <h2>Optional AI answers</h2>
+        <p>
+          AI answers is off by default. If you turn it on, add your own Anthropic API key and choose “Draft an answer with AI” on a
+          field, SmartFill sends this to Anthropic, directly from your browser and only for that request: the question, the page
+          title and up to about 6,000 characters of text from the page, and these profile details: name, current job and company,
+          years of experience, city and country, education, links, short bio and your saved screening answers. Your email, phone,
+          address, date of birth and salary are never sent. Anthropic processes the request under its own terms and privacy policy
+          for API use. SmartFill does not receive any of it. Your API key is stored only on your device (encrypted when the PIN lock
+          is on) and is never included in backups.
         </p>
 
         <h2>What SmartFill does not collect</h2>
@@ -44,6 +60,7 @@ export default function PrivacyPage() {
           <li><strong>Storage</strong>: to save your profiles and settings on your device.</li>
           <li><strong>Active tab</strong>: to fill the page you are on from the toolbar or a keyboard shortcut.</li>
           <li><strong>Context menus</strong>: to add “Fill this field with…” to the right-click menu.</li>
+          <li><strong>Access to api.anthropic.com (optional)</strong>: asked for only when you turn on AI answers, to send your draft requests. You can remove it by turning the feature off.</li>
         </ul>
 
         <h2>Your control</h2>
