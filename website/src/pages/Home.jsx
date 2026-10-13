@@ -332,7 +332,7 @@ function HowItWorks() {
 
 function Privacy() {
   const points = [
-    { icon: Lock, title: 'Stays in your browser', text: 'No account, no server, no analytics. SmartFill never sends your details anywhere.' },
+    { icon: Lock, title: 'Stays in your browser', text: 'No account, no server, no analytics. SmartFill never sends your details anywhere. Add a PIN to encrypt your profiles on this device.' },
     { icon: ShieldCheck, title: 'Hands off sensitive fields', text: 'Passwords, card numbers, one-time codes and ID numbers are never filled or read.' },
     { icon: Code2, title: 'Open source', text: 'Every line of code is public on GitHub, so anyone can check what it does.' },
   ]

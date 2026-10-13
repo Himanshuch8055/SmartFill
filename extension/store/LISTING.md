@@ -48,6 +48,7 @@ English and Hindi (हिन्दी).
 • Everything is stored only in your browser. No account, no servers, no tracking.
 • Never touches password, card, OTP or ID-number fields.
 • Export and restore a full backup anytime.
+• Optional PIN lock encrypts your profiles on this device.
 
 **For developers**
 Optional "Fill with test data" fills forms with a new made-up person each time, for testing your own forms.
@@ -69,6 +70,7 @@ Keyboard shortcuts: Alt+Shift+F fill · Alt+Shift+Z undo · Alt+Shift+P switch p
 • कई चरणों वाले फ़ॉर्म में अगले चरण भी भरता है, आपका लिखा कभी नहीं बदलता।
 • स्निपेट: ;addr जैसा शॉर्टकट लिखें और आपका सेव किया टेक्स्ट आ जाएगा।
 • पासवर्ड, कार्ड नंबर, OTP और पहचान नंबर कभी नहीं भरता।
+• चाहें तो PIN लॉक से अपनी प्रोफ़ाइल एन्क्रिप्ट करें।
 • सब कुछ सिर्फ़ आपके ब्राउज़र में रहता है। न अकाउंट, न सर्वर, न ट्रैकिंग।
 
 कीबोर्ड शॉर्टकट: Alt+Shift+F भरें · Alt+Shift+Z पहले जैसा करें · Alt+Shift+P प्रोफ़ाइल बदलें।
