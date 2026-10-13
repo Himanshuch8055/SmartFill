@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { GITHUB_URL, CONTACT_EMAIL } from '../utils/links'
 
-const UPDATED = '13 October 2026'
+const UPDATED = 'October 13, 2026'
 
 export default function PrivacyPage() {
   React.useEffect(() => {
