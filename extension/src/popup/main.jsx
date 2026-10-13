@@ -2,8 +2,8 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { filledAgo } from '../lib/time'
 import '../styles.css'
-import { Settings, ChevronDown, Check } from 'lucide-react'
-import { initTheme, IconButton, Switch, DropdownMenu, cn } from '../ui'
+import { Settings, ChevronDown, Check, Lock } from 'lucide-react'
+import { initTheme, IconButton, Switch, DropdownMenu, UnlockForm, cn } from '../ui'
 import { reviewUrl, reportSiteUrl } from '../lib/links'
 import { t, tn, initLanguage } from '../lib/i18n'
 
@@ -24,6 +24,8 @@ function usePopupState() {
 
   const load = React.useCallback(async () => {
     try {
+      const lock = await send({ type: 'GET_LOCK_STATE' })
+      if (lock?.locked) return setState({ loading: false, locked: true })
       const [tab, prof, local] = await Promise.all([
         send({ type: 'GET_TAB_STATE' }),
         send({ type: 'GET_PROFILES' }),
@@ -31,6 +33,7 @@ function usePopupState() {
       ])
       setState({
         loading: false,
+        lockEnabled: !!lock?.enabled,
         host: tab?.host || '',
         restricted: !!tab?.restricted,
         fieldCount: tab?.fieldCount ?? null,
@@ -126,7 +129,7 @@ function Popup() {
   const [busy, setBusy] = React.useState(false)
 
   const fillProfile = state.profiles?.find((p) => p.id === (state.siteProfileId || state.activeId))
-  const needsSetup = !state.loading && !state.error && !hasProfileData(fillProfile)
+  const needsSetup = !state.loading && !state.error && !state.locked && !hasProfileData(fillProfile)
   const canFill = !state.loading && !state.error && !state.restricted && !state.blocked && !needsSetup
 
   async function undo() {
@@ -216,6 +219,9 @@ function Popup() {
         {state.profiles?.length > 0 && (
           <ProfileMenu profiles={state.profiles} activeId={state.activeId} popupProfileIds={state.popupProfileIds} onSwitch={switchProfile} />
         )}
+        {state.lockEnabled && (
+          <IconButton icon={Lock} label={t('Lock now')} size="sm" onClick={async () => { await send({ type: 'LOCK_NOW' }); reload() }} />
+        )}
         <IconButton icon={Settings} label={t('Settings')} size="sm" className="-mr-2" onClick={() => chrome.runtime.openOptionsPage()} />
       </header>
 
@@ -225,6 +231,8 @@ function Popup() {
           <div className="h-4 w-40 rounded bg-surface-2" />
           <div className="h-9 rounded-lg bg-surface-2" />
         </div>
+      ) : state.locked ? (
+        <UnlockForm className="px-4 py-4" onUnlocked={reload} onForgot={() => chrome.runtime.openOptionsPage()} />
       ) : state.error ? (
         <p className="px-4 py-5 text-[13px] text-danger">{state.error}</p>
       ) : needsSetup ? (
@@ -308,7 +316,7 @@ function Popup() {
       )}
       </main>
 
-      {!state.loading && !state.error && !needsSetup && (
+      {!state.loading && !state.error && !state.locked && !needsSetup && (
         <footer className="border-t border-line px-4 h-10 flex items-center justify-between">
           <LinkButton onClick={undo} disabled={state.restricted}>{t('Undo last fill')}</LinkButton>
           {state.testData ? (
