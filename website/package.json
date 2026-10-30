@@ -9,15 +9,15 @@
     "preview": "vite preview --port 5174"
   },
   "dependencies": {
-    "lucide-react": "^0.460.0",
+    "lucide-react": "^0.577.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.6"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.6.1",
-    "postcss": "^8.5.29",
+    "autoprefixer": "^10.6.2",
+    "postcss": "^8.5.32",
     "tailwindcss": "^3.4.19",
     "vite": "^5.4.21"
   },
